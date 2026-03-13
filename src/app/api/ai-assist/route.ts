@@ -1,5 +1,11 @@
+/**
+ * AI 辅助 API
+ *
+ * 支持从数据库读取 AI 配置，并在服务端代理请求，避免暴露 API Key
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
 import { defaultSystemPrompts } from '@/lib/ai-config';
 
 // AI 配置接口
@@ -18,18 +24,19 @@ interface AIRequestBody {
   config?: AIRequestConfig;
   chatHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   userMessage?: string;
+  configId?: string; // 使用数据库中的配置 ID
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: AIRequestBody = await request.json();
-    const { action, content, selection, config: customConfig, chatHistory, userMessage } = body;
+    const { action, content, selection, config: customConfig, chatHistory, userMessage, configId } = body;
 
     // 测试连接
     if (action === 'test') {
       return handleTestConnection(customConfig);
     }
-    
+
     if (!content && !selection && action !== 'chat') {
       return NextResponse.json(
         { error: '请提供内容' },
@@ -37,19 +44,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 优先使用数据库中的配置
+    if (configId) {
+      const dbConfig = await getAIConfigFromDB(configId);
+      if (dbConfig) {
+        return handleCustomAIRequest(action, content, selection, dbConfig, chatHistory, userMessage);
+      }
+    }
+
     // 如果有自定义配置，使用自定义配置调用
     if (customConfig?.apiKey) {
       return handleCustomAIRequest(action, content, selection, customConfig, chatHistory, userMessage);
     }
 
-    // 否则使用默认的 Coze SDK
-    return handleDefaultAIRequest(request, action, content, selection, chatHistory, userMessage);
+    // 否则返回错误，提示需要配置 AI
+    return NextResponse.json(
+      { error: '请先在设置中配置 AI，或提供 AI 配置' },
+      { status: 400 }
+    );
   } catch (error) {
     console.error('AI API error:', error);
     return NextResponse.json(
       { error: 'AI 服务暂时不可用，请稍后重试' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * 从数据库获取 AI 配置
+ */
+async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | null> {
+  try {
+    const client = getSupabaseAdminClient();
+    const { data: config, error } = await client
+      .from('ai_configurations')
+      .select('provider, apiKey, apiEndpoint, model')
+      .eq('id', configId)
+      .eq('user_id', 'default_user')
+      .single();
+
+    if (error || !config) {
+      console.error('获取 AI 配置失败:', error);
+      return null;
+    }
+
+    return {
+      provider: config.provider,
+      apiKey: config.apiKey,
+      apiEndpoint: config.apiEndpoint,
+      model: config.model,
+    };
+  } catch (error) {
+    console.error('从数据库获取 AI 配置错误:', error);
+    return null;
   }
 }
 
@@ -205,62 +253,6 @@ async function handleCustomAIRequest(
   });
 }
 
-// 处理默认 AI 请求（使用 Coze SDK）
-async function handleDefaultAIRequest(
-  request: NextRequest,
-  action: string,
-  content: string,
-  selection?: string,
-  chatHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
-  userMessage?: string
-) {
-  const { systemPrompt, userPrompt, messages: additionalMessages } = getPrompts(action, content, selection, chatHistory, userMessage);
-
-  const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-  const config = new Config();
-  const client = new LLMClient(config, customHeaders);
-
-  const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...additionalMessages,
-    { role: 'user' as const, content: userPrompt },
-  ];
-
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        const llmStream = client.stream(messages, {
-          temperature: 0.7,
-          model: 'doubao-seed-1-6-flash-250615',
-        });
-
-        for await (const chunk of llmStream) {
-          if (chunk.content) {
-            const text = chunk.content.toString();
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`));
-          }
-        }
-
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      } catch (error) {
-        console.error('Stream error:', error);
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`));
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
-}
-
 // 获取提示词
 function getPrompts(
   action: string,
@@ -341,7 +333,7 @@ ${content}
 \`\`\`
 
 请用中文回答用户的问题。如果用户的问题是关于当前文档的，请结合文档内容给出回答。`;
-      
+
       // 构建对话历史
       if (chatHistory && chatHistory.length > 0) {
         messages = chatHistory.map(msg => ({

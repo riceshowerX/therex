@@ -3,6 +3,7 @@ import { Inspector } from 'react-dev-inspector';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PWAInstaller } from '@/components/pwa-installer';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -74,9 +75,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {isDev && <Inspector />}
-          {children}
-          <PWAInstaller />
+          <ErrorBoundary>
+            {isDev && <Inspector />}
+            {children}
+            <PWAInstaller />
+          </ErrorBoundary>
         </ThemeProvider>
       </body>
     </html>
