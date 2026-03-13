@@ -63,9 +63,35 @@ function processMermaidBlocks(html: string): string {
 function processEChartsBlocks(html: string): string {
   // 匹配 ```echarts 代码块
   const echartsRegex = /<pre><code class="language-echarts">([\s\S]*?)<\/code><\/pre>/g;
-  
+
   return html.replace(echartsRegex, (match, code) => {
-    const trimmedCode = code.trim();
+    // 移除可能的 HTML 实体转义
+    const unescapedCode = code
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'");
+
+    const trimmedCode = unescapedCode.trim();
+
+    // 验证 JSON 格式
+    try {
+      JSON.parse(trimmedCode);
+    } catch (error) {
+      console.error('Invalid ECharts JSON:', trimmedCode, error);
+      return `<div class="echarts-container error">
+        <div class="text-red-500 p-4">
+          <strong>ECharts 配置错误：</strong>
+          <pre class="mt-2">${error}</pre>
+          <details class="mt-2">
+            <summary>查看原始代码</summary>
+            <pre>${trimmedCode}</pre>
+          </details>
+        </div>
+      </div>`;
+    }
+
     // 将 JSON 字符串转换为 data 属性
     const encodedCode = encodeURIComponent(trimmedCode);
     return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
@@ -205,36 +231,48 @@ export async function initECharts(): Promise<void> {
 
   // 查找所有 ECharts 容器
   const echartsContainers = document.querySelectorAll('.echarts-container');
-  
+
   echartsContainers.forEach((container) => {
     const chartDiv = container.querySelector('.echarts-chart') as HTMLElement;
     const configData = (container as HTMLElement).getAttribute('data-chart-config');
-    
-    if (!chartDiv || !configData) return;
+
+    if (!chartDiv || !configData) {
+      console.warn('ECharts container missing chartDiv or configData');
+      return;
+    }
 
     try {
-      // 解析 JSON 配置
-      const config = JSON.parse(decodeURIComponent(configData));
-      
+      // 解码并解析 JSON 配置
+      const decodedConfig = decodeURIComponent(configData);
+      console.log('ECharts config:', decodedConfig); // 调试日志
+      const config = JSON.parse(decodedConfig);
+
       // 创建图表实例
       const chart = echarts.init(chartDiv);
-      
+
       // 设置配置并渲染
       chart.setOption(config);
-      
+
       // 响应式调整
       const resizeObserver = new ResizeObserver(() => {
         chart.resize();
       });
       resizeObserver.observe(container);
-      
+
       // 保存实例以便后续清理
       (chartDiv as any).echartsInstance = chart;
       (chartDiv as any).resizeObserver = resizeObserver;
     } catch (error) {
       console.error('ECharts 渲染失败:', error);
       if (chartDiv) {
-        chartDiv.innerHTML = `<div class="text-red-500 p-4">图表渲染失败：${error}</div>`;
+        chartDiv.innerHTML = `<div class="text-red-500 p-4">
+          <strong>ECharts 渲染失败：</strong>
+          <pre class="mt-2 text-sm">${error instanceof Error ? error.message : String(error)}</pre>
+          <details class="mt-2">
+            <summary>查看配置数据</summary>
+            <pre class="mt-2 text-xs overflow-auto max-h-40">${configData}</pre>
+          </details>
+        </div>`;
       }
     }
   });
