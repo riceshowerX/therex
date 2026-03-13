@@ -21,6 +21,20 @@
   align-items: center;
 }
 
+/* ECharts 图表容器 */
+.echarts-container {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--muted);
+  overflow-x: auto;
+}
+
+.echarts-chart {
+  width: 100%;
+  min-height: 400px;
+}
+
 /* 数学公式容器 */
 .katex {
   font-size: 1em;
@@ -33,7 +47,8 @@
 }
 
 /* 代码块样式增强 */
-pre code.language-mermaid {
+pre code.language-mermaid,
+pre code.language-echarts {
   background-color: transparent;
   padding: 0;
 }

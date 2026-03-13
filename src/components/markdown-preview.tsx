@@ -3,11 +3,11 @@
 /**
  * 增强的 Markdown 预览组件
  *
- * 支持数学公式和图表渲染
+ * 支持数学公式、图表和数据可视化
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { renderCompleteMarkdown, initMermaid } from '@/lib/markdown-renderer';
+import { renderCompleteMarkdown, initMermaid, initECharts, cleanupECharts } from '@/lib/markdown-renderer';
 
 interface MarkdownPreviewProps {
   markdown: string;
@@ -17,10 +17,14 @@ interface MarkdownPreviewProps {
 export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isMermaidInitialized, setIsMermaidInitialized] = useState(false);
+  const [isEChartsInitialized, setIsEChartsInitialized] = useState(false);
 
   // 渲染 Markdown 和图表
   useEffect(() => {
     if (previewRef.current) {
+      // 清理旧的 ECharts 实例
+      cleanupECharts();
+
       // 渲染 Markdown（包含数学公式）
       const html = renderCompleteMarkdown(markdown);
       previewRef.current.innerHTML = html;
@@ -53,8 +57,27 @@ export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewPro
         
         renderMermaid().catch(console.error);
       }
+
+      // 初始化 ECharts 图表
+      if (!isEChartsInitialized) {
+        initECharts()
+          .then(() => {
+            setIsEChartsInitialized(true);
+          })
+          .catch((error) => {
+            console.error('ECharts 初始化失败:', error);
+          });
+      } else {
+        // 重新渲染 ECharts 图表
+        initECharts().catch(console.error);
+      }
     }
-  }, [markdown, isMermaidInitialized]);
+
+    // 清理函数
+    return () => {
+      cleanupECharts();
+    };
+  }, [markdown, isMermaidInitialized, isEChartsInitialized]);
 
   return (
     <div

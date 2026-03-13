@@ -241,6 +241,92 @@ c & d
 \\end{pmatrix}
 $$
 
+## ECharts 数据可视化
+
+### 柱状图
+
+\`\`\`echarts
+{
+  "title": {
+    "text": "销售数据统计",
+    "left": "center"
+  },
+  "tooltip": {},
+  "xAxis": {
+    "data": ["产品A", "产品B", "产品C", "产品D", "产品E"]
+  },
+  "yAxis": {},
+  "series": [{
+    "name": "销量",
+    "type": "bar",
+    "data": [120, 200, 150, 80, 70]
+  }]
+}
+\`\`\`
+
+### 折线图
+
+\`\`\`echarts
+{
+  "title": {
+    "text": "月度趋势",
+    "left": "center"
+  },
+  "tooltip": {
+    "trigger": "axis"
+  },
+  "xAxis": {
+    "type": "category",
+    "data": ["1月", "2月", "3月", "4月", "5月", "6月"]
+  },
+  "yAxis": {
+    "type": "value"
+  },
+  "series": [{
+    "name": "收入",
+    "type": "line",
+    "data": [820, 932, 901, 934, 1290, 1330]
+  }]
+}
+\`\`\`
+
+### 饼图
+
+\`\`\`echarts
+{
+  "title": {
+    "text": "市场份额",
+    "left": "center"
+  },
+  "tooltip": {
+    "trigger": "item"
+  },
+  "legend": {
+    "orient": "vertical",
+    "left": "left"
+  },
+  "series": [{
+    "name": "市场份额",
+    "type": "pie",
+    "radius": "50%",
+    "data": [
+      {"value": 1048, "name": "搜索引擎"},
+      {"value": 735, "name": "直接访问"},
+      {"value": 580, "name": "邮件营销"},
+      {"value": 484, "name": "联盟广告"},
+      {"value": 300, "name": "视频广告"}
+    ],
+    "emphasis": {
+      "itemStyle": {
+        "shadowBlur": 10,
+        "shadowOffsetX": 0,
+        "shadowColor": "rgba(0, 0, 0, 0.5)"
+      }
+    }
+  }]
+}
+\`\`\`
+
 ## 流程图
 
 \`\`\`mermaid
@@ -374,7 +460,7 @@ erDiagram
 
 ## 混合使用
 
-你可以在同一文档中混合使用数学公式和图表：
+你可以在同一文档中混合使用数学公式、ECharts 图表和 Mermaid 图表：
 
 $$
 \\oint_C \\mathbf{E} \\cdot d\\mathbf{l} = -\\frac{d\\Phi_B}{dt}
@@ -389,8 +475,9 @@ graph LR
 ## 注意事项
 
 - 数学公式使用 \`$\`（行内）和 \`$$\`（块级）包裹
-- 图表使用 \`\`\`mermaid\`\`\` 代码块
-- 支持多种图表类型：flowchart, sequence, class, state, er, gantt, pie, mindmap
+- ECharts 图表使用 \`\`\`echarts\`\`\` 代码块，内容为 JSON 格式
+- Mermaid 图表使用 \`\`\`mermaid\`\`\` 代码块
+- ECharts 支持所有标准配置选项，参见 [ECharts 官方文档](https://echarts.apache.org/zh/option.html)
 
 ---
 
