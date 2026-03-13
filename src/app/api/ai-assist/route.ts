@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LLMClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
+import { defaultSystemPrompts } from '@/lib/ai-config';
+
+// AI 配置接口
+interface AIRequestConfig {
+  provider: string;
+  apiKey: string;
+  apiEndpoint: string;
+  model: string;
+}
+
+// 请求体接口
+interface AIRequestBody {
+  action: string;
+  content: string;
+  selection?: string;
+  config?: AIRequestConfig;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, content, selection, context } = await request.json();
+    const body: AIRequestBody = await request.json();
+    const { action, content, selection, config: customConfig } = body;
+
+    // 测试连接
+    if (action === 'test') {
+      return handleTestConnection(customConfig);
+    }
     
     if (!content && !selection) {
       return NextResponse.json(
@@ -12,158 +35,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
-    const config = new Config();
-    const client = new LLMClient(config, customHeaders);
-
-    // 根据不同操作设置不同的系统提示
-    let systemPrompt = '';
-    let userPrompt = '';
-
-    switch (action) {
-      case 'continue':
-        systemPrompt = `你是一个专业的写作助手。请根据用户提供的文档内容，自然地续写后续内容。
-要求：
-- 保持原文的语气、风格和格式
-- 内容要自然流畅，与原文紧密衔接
-- 如果原文是技术文档，保持专业性
-- 如果原文是创意写作，保持创意性
-- 只输出续写的内容，不要输出任何解释或说明`;
-        userPrompt = `请续写以下内容：\n\n${content}`;
-        break;
-
-      case 'polish':
-        systemPrompt = `你是一个专业的文字编辑。请帮助用户润色选中的文本，使其更加通顺、专业、有表现力。
-要求：
-- 保持原文的核心意思不变
-- 改善语言表达，使其更加流畅
-- 修正语法错误和不通顺的表达
-- 只输出润色后的内容，不要输出任何解释或说明`;
-        userPrompt = `请润色以下文本：\n\n${selection}`;
-        break;
-
-      case 'expand':
-        systemPrompt = `你是一个专业的内容创作助手。请帮助用户扩展选中的文本，添加更多细节和内容。
-要求：
-- 保持原文的核心意思和风格
-- 添加相关的细节、例子或解释
-- 使内容更加丰富和完整
-- 只输出扩展后的内容，不要输出任何解释或说明`;
-        userPrompt = `请扩展以下内容：\n\n${selection}`;
-        break;
-
-      case 'summarize':
-        systemPrompt = `你是一个专业的文档摘要助手。请帮助用户总结文档的主要内容。
-要求：
-- 提取核心要点
-- 保持简洁明了
-- 使用列表形式展示
-- 只输出摘要内容`;
-        userPrompt = `请总结以下文档的主要内容：\n\n${content}`;
-        break;
-
-      case 'translate':
-        systemPrompt = `你是一个专业的翻译助手。请将用户选中的文本翻译成目标语言。
-目标语言：中文（如果是中文则翻译成英文）
-要求：
-- 保持原文的意思和语气
-- 使用自然流畅的表达
-- 只输出翻译结果`;
-        userPrompt = `请翻译以下内容：\n\n${selection}`;
-        break;
-
-      case 'fix':
-        systemPrompt = `你是一个专业的文字校对助手。请帮助用户修正选中文本中的错误。
-要求：
-- 修正语法错误、拼写错误、标点错误
-- 保持原文意思不变
-- 只输出修正后的内容`;
-        userPrompt = `请修正以下文本中的错误：\n\n${selection}`;
-        break;
-
-      case 'outline':
-        systemPrompt = `你是一个专业的写作规划助手。请根据用户提供的主题或内容，生成一个详细的写作大纲。
-要求：
-- 结构清晰，层次分明
-- 每个要点简洁明确
-- 适合作为写作参考
-- 只输出大纲内容`;
-        userPrompt = `请为以下主题生成写作大纲：\n\n${content}`;
-        break;
-
-      case 'title':
-        systemPrompt = `你是一个专业的标题创作助手。请根据文档内容，生成几个合适的标题建议。
-要求：
-- 标题要吸引人且准确概括内容
-- 提供3-5个不同风格的标题选项
-- 每个标题一行
-- 只输出标题，不要编号`;
-        userPrompt = `请为以下内容生成标题建议：\n\n${content}`;
-        break;
-
-      case 'explain':
-        systemPrompt = `你是一个专业的技术讲解助手。请用简单易懂的语言解释选中的内容。
-要求：
-- 使用通俗易懂的语言
-- 必要时举例说明
-- 只输出解释内容`;
-        userPrompt = `请解释以下内容：\n\n${selection}`;
-        break;
-
-      case 'rewrite':
-        systemPrompt = `你是一个专业的写作助手。请帮助用户改写选中的文本，使其表达方式不同但意思相同。
-要求：
-- 完全重写，使用不同的表达方式
-- 保持原文核心意思不变
-- 可以调整句子结构
-- 只输出改写后的内容`;
-        userPrompt = `请改写以下内容：\n\n${selection}`;
-        break;
-
-      default:
-        systemPrompt = `你是一个专业的写作助手。请根据用户的请求提供帮助。`;
-        userPrompt = content || selection || '';
+    // 如果有自定义配置，使用自定义配置调用
+    if (customConfig?.apiKey) {
+      return handleCustomAIRequest(action, content, selection, customConfig);
     }
 
-    const messages = [
-      { role: 'system' as const, content: systemPrompt },
-      { role: 'user' as const, content: userPrompt },
-    ];
-
-    // 使用流式响应
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          const llmStream = client.stream(messages, {
-            temperature: 0.7,
-            model: 'doubao-seed-1-6-flash-250615', // 使用快速模型
-          });
-
-          for await (const chunk of llmStream) {
-            if (chunk.content) {
-              const text = chunk.content.toString();
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`));
-            }
-          }
-
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        } catch (error) {
-          console.error('Stream error:', error);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`));
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
+    // 否则使用默认的 Coze SDK
+    return handleDefaultAIRequest(request, action, content, selection);
   } catch (error) {
     console.error('AI API error:', error);
     return NextResponse.json(
@@ -171,4 +49,267 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// 处理测试连接
+async function handleTestConnection(config?: AIRequestConfig) {
+  if (!config?.apiKey) {
+    return NextResponse.json(
+      { error: '请提供 API Key' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const response = await fetch(`${config.apiEndpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 5,
+      }),
+    });
+
+    if (response.ok) {
+      return NextResponse.json({ success: true, message: '连接成功' });
+    } else {
+      const error = await response.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: error.error?.message || '连接失败，请检查 API Key 和端点' },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { error: '连接失败，请检查网络或端点地址' },
+      { status: 400 }
+    );
+  }
+}
+
+// 处理自定义 AI 请求
+async function handleCustomAIRequest(
+  action: string,
+  content: string,
+  selection?: string,
+  config?: AIRequestConfig
+) {
+  if (!config) {
+    return NextResponse.json(
+      { error: '配置缺失' },
+      { status: 400 }
+    );
+  }
+
+  const { systemPrompt, userPrompt } = getPrompts(action, content, selection);
+
+  // 使用 OpenAI 兼容 API
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const response = await fetch(`${config.apiEndpoint}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 2048,
+            stream: true,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ error: error.error?.message || 'API 请求失败' })}\n\n`
+            )
+          );
+          controller.close();
+          return;
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') {
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                  continue;
+                }
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+                    );
+                  }
+                } catch {
+                  // 忽略解析错误
+                }
+              }
+            }
+          }
+        }
+
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (error) {
+        console.error('Custom AI stream error:', error);
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`)
+        );
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
+// 处理默认 AI 请求（使用 Coze SDK）
+async function handleDefaultAIRequest(
+  request: NextRequest,
+  action: string,
+  content: string,
+  selection?: string
+) {
+  const { systemPrompt, userPrompt } = getPrompts(action, content, selection);
+
+  const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+  const config = new Config();
+  const client = new LLMClient(config, customHeaders);
+
+  const messages = [
+    { role: 'system' as const, content: systemPrompt },
+    { role: 'user' as const, content: userPrompt },
+  ];
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const llmStream = client.stream(messages, {
+          temperature: 0.7,
+          model: 'doubao-seed-1-6-flash-250615',
+        });
+
+        for await (const chunk of llmStream) {
+          if (chunk.content) {
+            const text = chunk.content.toString();
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`));
+          }
+        }
+
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (error) {
+        console.error('Stream error:', error);
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
+}
+
+// 获取提示词
+function getPrompts(action: string, content: string, selection?: string) {
+  let systemPrompt = '';
+  let userPrompt = '';
+
+  switch (action) {
+    case 'continue':
+      systemPrompt = defaultSystemPrompts.continue;
+      userPrompt = `请续写以下内容：\n\n${content}`;
+      break;
+
+    case 'polish':
+      systemPrompt = defaultSystemPrompts.polish;
+      userPrompt = `请润色以下文本：\n\n${selection}`;
+      break;
+
+    case 'expand':
+      systemPrompt = defaultSystemPrompts.expand;
+      userPrompt = `请扩展以下内容：\n\n${selection}`;
+      break;
+
+    case 'summarize':
+      systemPrompt = defaultSystemPrompts.summarize;
+      userPrompt = `请总结以下文档的主要内容：\n\n${content}`;
+      break;
+
+    case 'translate':
+      systemPrompt = defaultSystemPrompts.translate;
+      userPrompt = `请翻译以下内容：\n\n${selection}`;
+      break;
+
+    case 'fix':
+      systemPrompt = defaultSystemPrompts.fix;
+      userPrompt = `请修正以下文本中的错误：\n\n${selection}`;
+      break;
+
+    case 'outline':
+      systemPrompt = defaultSystemPrompts.outline;
+      userPrompt = `请为以下主题生成写作大纲：\n\n${content}`;
+      break;
+
+    case 'title':
+      systemPrompt = defaultSystemPrompts.title;
+      userPrompt = `请为以下内容生成标题建议：\n\n${content}`;
+      break;
+
+    case 'explain':
+      systemPrompt = defaultSystemPrompts.explain;
+      userPrompt = `请解释以下内容：\n\n${selection}`;
+      break;
+
+    case 'rewrite':
+      systemPrompt = defaultSystemPrompts.rewrite;
+      userPrompt = `请改写以下内容：\n\n${selection}`;
+      break;
+
+    default:
+      systemPrompt = `你是一个专业的写作助手。请根据用户的请求提供帮助。`;
+      userPrompt = content || selection || '';
+  }
+
+  return { systemPrompt, userPrompt };
 }

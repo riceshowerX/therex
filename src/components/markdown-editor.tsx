@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,6 +101,7 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import { documentManager, type Document } from '@/lib/document-manager';
 import { templates, templateCategories, getTemplatesByCategory, getTemplateById } from '@/lib/templates';
+import { aiConfigManager } from '@/lib/ai-config';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -114,6 +116,7 @@ interface HistoryState {
 }
 
 export default function MarkdownEditor() {
+  const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
   
   // 文档状态
@@ -154,6 +157,9 @@ export default function MarkdownEditor() {
   const [aiResult, setAiResult] = useState('');
   const [aiAction, setAiAction] = useState<string>('');
   
+  // AI 配置
+  const [aiConfig, setAiConfig] = useState(() => aiConfigManager.getConfig());
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -161,6 +167,9 @@ export default function MarkdownEditor() {
   useEffect(() => {
     const docs = documentManager.getAllDocuments();
     setDocuments(docs);
+    
+    // 加载 AI 配置
+    setAiConfig(aiConfigManager.getConfig());
     
     const current = documentManager.getCurrentDocument();
     if (current) {
@@ -304,6 +313,9 @@ export default function MarkdownEditor() {
     setAiAction(action);
     setShowAIPanel(true);
 
+    // 获取最新的 AI 配置
+    const config = aiConfigManager.getConfig();
+
     try {
       const response = await fetch('/api/ai-assist', {
         method: 'POST',
@@ -314,6 +326,12 @@ export default function MarkdownEditor() {
           action,
           content,
           selection: selection || '',
+          config: config.apiKey ? {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            apiEndpoint: config.apiEndpoint,
+            model: config.model,
+          } : undefined,
         }),
       });
 
@@ -930,6 +948,18 @@ ${content}
               </Button>
               <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="全屏">
                 <Maximize2 className="h-4 w-4" />
+              </Button>
+              
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              
+              {/* 设置 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => router.push('/settings')} 
+                title="设置"
+              >
+                <Settings className="h-4 w-4" />
               </Button>
             </div>
           </div>
