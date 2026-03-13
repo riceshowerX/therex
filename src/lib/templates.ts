@@ -193,6 +193,211 @@ console.log(example);
 `,
   },
   {
+    id: 'math-charts-demo',
+    name: '数学公式与图表',
+    description: '演示数学公式和图表渲染功能',
+    category: 'writing',
+    icon: '📊',
+    content: `# 数学公式与图表演示
+
+本文档演示 MarkFlow 的数学公式和图表渲染功能。
+
+## 数学公式
+
+### 行内公式
+
+质能方程是 $E = mc^2$，这是爱因斯坦最著名的公式。
+
+勾股定理：$a^2 + b^2 = c^2$
+
+欧拉公式：$e^{i\\pi} + 1 = 0$
+
+### 块级公式
+
+二次公式：
+
+$$
+x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+$$
+
+求和公式：
+
+$$
+\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
+$$
+
+积分公式：
+
+$$
+\\int_{a}^{b} f(x) \\, dx = F(b) - F(a)
+$$
+
+矩阵：
+
+$$
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+$$
+
+## 流程图
+
+\`\`\`mermaid
+graph TD
+    A[开始] --> B{判断}
+    B -->|是| C[执行]
+    B -->|否| D[跳过]
+    C --> E[结束]
+    D --> E
+\`\`\`
+
+## 时序图
+
+\`\`\`mermaid
+sequenceDiagram
+    participant 用户
+    participant 系统
+    participant 数据库
+    
+    用户->>系统: 发送请求
+    系统->>数据库: 查询数据
+    数据库-->>系统: 返回结果
+    系统-->>用户: 返回响应
+\`\`\`
+
+## 类图
+
+\`\`\`mermaid
+classDiagram
+    class User {
+        +String name
+        +String email
+        +login()
+        +logout()
+    }
+    
+    class Document {
+        +String title
+        +String content
+        +save()
+        +delete()
+    }
+    
+    User "1" --> "*" Document : owns
+\`\`\`
+
+## 状态图
+
+\`\`\`mermaid
+stateDiagram-v2
+    [*] --> 待处理
+    待处理 --> 进行中
+    进行中 --> 已完成
+    进行中 --> 已取消
+    已完成 --> [*]
+    已取消 --> [*]
+\`\`\`
+
+## 甘特图
+
+\`\`\`mermaid
+gantt
+    title 项目进度
+    dateFormat  YYYY-MM-DD
+    section 需求分析
+    需求调研       :a1, 2024-01-01, 10d
+    需求分析       :a2, after a1, 5d
+    section 开发
+    前端开发       :b1, 2024-01-16, 20d
+    后端开发       :b2, 2024-01-16, 15d
+    测试           :b3, after b2, 5d
+\`\`\`
+
+## 饼图
+
+\`\`\`mermaid
+pie title 技术栈分布
+    "React" : 30
+    "Next.js" : 25
+    "TypeScript" : 20
+    "Tailwind" : 15
+    "其他" : 10
+\`\`\`
+
+## 思维导图
+
+\`\`\`mermaid
+mindmap
+  root((MarkFlow))
+    编辑器
+      Markdown
+      实时预览
+      语法高亮
+    功能
+      AI 助手
+      文档管理
+      版本历史
+    技术
+      Next.js
+      React
+      Supabase
+\`\`\`
+
+## 实体关系图
+
+\`\`\`mermaid
+erDiagram
+    USER ||--o{ DOCUMENT : "creates"
+    FOLDER ||--o{ DOCUMENT : "contains"
+    DOCUMENT ||--o{ VERSION : "has"
+    
+    USER {
+        string id PK
+        string name
+        string email
+    }
+    
+    DOCUMENT {
+        string id PK
+        string title
+        text content
+        string folder_id FK
+    }
+    
+    FOLDER {
+        string id PK
+        string name
+        string parent_id FK
+    }
+\`\`\`
+
+## 混合使用
+
+你可以在同一文档中混合使用数学公式和图表：
+
+$$
+\\oint_C \\mathbf{E} \\cdot d\\mathbf{l} = -\\frac{d\\Phi_B}{dt}
+$$
+
+\`\`\`mermaid
+graph LR
+    A[输入] --> B[处理]
+    B --> C[输出]
+\`\`\`
+
+## 注意事项
+
+- 数学公式使用 \`$\`（行内）和 \`$$\`（块级）包裹
+- 图表使用 \`\`\`mermaid\`\`\` 代码块
+- 支持多种图表类型：flowchart, sequence, class, state, er, gantt, pie, mindmap
+
+---
+
+> 提示：尝试编辑本文档，添加你自己的数学公式和图表！
+`,
+  },
+  {
     id: 'technical-design',
     name: '技术设计文档',
     description: '技术方案设计文档',
