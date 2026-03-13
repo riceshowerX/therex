@@ -150,27 +150,28 @@ export async function initMermaid(): Promise<void> {
 
   const { default: mermaid } = await import('mermaid');
 
+  // 只初始化一次
+  if ((mermaid as any).isInitialized) return;
+
   mermaid.initialize({
     startOnLoad: false,
     theme: 'default',
     securityLevel: 'loose',
   });
 
+  (mermaid as any).isInitialized = true;
+
   // 渲染所有 Mermaid 图表
   const mermaidDivs = document.querySelectorAll('.mermaid');
-  mermaidDivs.forEach(async (div) => {
-    const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-    
-    const graphDefinition = div.textContent || '';
-    
+  if (mermaidDivs.length > 0) {
     try {
-      const { svg } = await mermaid.render(id, graphDefinition);
-      div.innerHTML = svg;
+      await mermaid.run({
+        nodes: Array.from(mermaidDivs) as HTMLElement[],
+      });
     } catch (error) {
       console.error('Mermaid 渲染失败:', error);
-      div.innerHTML = `<div class="text-red-500">图表渲染失败：${error}</div>`;
     }
-  });
+  }
 }
 
 /**

@@ -113,6 +113,7 @@ import { toast } from 'sonner';
 import { documentManager, type Document, type Folder as FolderType, type DocumentVersion } from '@/lib/document-manager';
 import { templates, templateCategories, getTemplatesByCategory, getTemplateById } from '@/lib/templates';
 import { aiConfigManager } from '@/lib/ai-config';
+import { MarkdownPreview } from '@/components/markdown-preview';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -1568,18 +1569,53 @@ ${content}
 
           {/* 编辑器主体 */}
           <div className="flex-1 overflow-hidden" style={{ fontSize: `${fontSize}px` }}>
-            <MDEditor
-              value={content}
-              onChange={(val) => setContent(val || '')}
-              preview={mode}
-              height="100%"
-              visibleDragbar={false}
-              hideToolbar={true}
-              enableScroll={true}
-              style={{
-                fontSize: `${fontSize}px`,
-              }}
-            />
+            {mode === 'edit' ? (
+              // 编辑模式：只显示编辑器
+              <MDEditor
+                value={content}
+                onChange={(val) => setContent(val || '')}
+                preview="edit"
+                height="100%"
+                visibleDragbar={false}
+                hideToolbar={true}
+                enableScroll={true}
+                style={{
+                  fontSize: `${fontSize}px`,
+                }}
+              />
+            ) : mode === 'preview' ? (
+              // 预览模式：只显示自定义预览
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  <MarkdownPreview markdown={content} />
+                </div>
+              </ScrollArea>
+            ) : (
+              // 实时模式：左侧编辑器，右侧自定义预览
+              <div className="flex h-full">
+                <div className="w-1/2 border-r">
+                  <MDEditor
+                    value={content}
+                    onChange={(val) => setContent(val || '')}
+                    preview="edit"
+                    height="100%"
+                    visibleDragbar={false}
+                    hideToolbar={true}
+                    enableScroll={true}
+                    style={{
+                      fontSize: `${fontSize}px`,
+                    }}
+                  />
+                </div>
+                <div className="w-1/2">
+                  <ScrollArea className="h-full">
+                    <div className="p-6">
+                      <MarkdownPreview markdown={content} />
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
