@@ -20,6 +20,48 @@ marked.use({
   breaks: true,
 });
 
+// ECharts 实例管理器
+interface EChartsInstance {
+  chart: any;
+  resizeObserver: ResizeObserver;
+  container: HTMLElement;
+}
+
+const echartsInstances = new Map<HTMLElement, EChartsInstance>();
+
+/**
+ * 清理 ECharts 实例
+ */
+export function cleanupECharts(): void {
+  if (typeof window === 'undefined') return;
+
+  echartsInstances.forEach((instance, container) => {
+    try {
+      instance.resizeObserver.disconnect();
+      instance.chart.dispose();
+      echartsInstances.delete(container);
+    } catch (error) {
+      console.error('Failed to cleanup ECharts instance:', error);
+    }
+  });
+}
+
+/**
+ * 清理指定的 ECharts 实例
+ */
+export function cleanupEChartsInstance(container: HTMLElement): void {
+  const instance = echartsInstances.get(container);
+  if (instance) {
+    try {
+      instance.resizeObserver.disconnect();
+      instance.chart.dispose();
+      echartsInstances.delete(container);
+    } catch (error) {
+      console.error('Failed to cleanup ECharts instance:', error);
+    }
+  }
+}
+
 /**
  * 自定义 Markdown 渲染器
  * 支持 KaTeX 数学公式、Mermaid 图表和 ECharts 数据可视化
@@ -103,8 +145,10 @@ function processEChartsBlocks(html: string): string {
  * 支持 $...$ 和 \(...\) 语法
  */
 export function renderInlineMath(text: string): string {
+  if (!text) return text;
+
   // $...$ 语法
-  text = text.replace(/\$([^$]+)\$/g, (match, math) => {
+  text = text.replace(/\$([^$\n]+)\$/g, (match, math) => {
     try {
       return katex.renderToString(math, {
         displayMode: false,
@@ -116,7 +160,7 @@ export function renderInlineMath(text: string): string {
   });
 
   // \(...\) 语法
-  text = text.replace(/\\\(([^)]+)\\\)/g, (match, math) => {
+  text = text.replace(/\\\(([^)\n]+)\\\)/g, (match, math) => {
     try {
       return katex.renderToString(math, {
         displayMode: false,
@@ -135,6 +179,8 @@ export function renderInlineMath(text: string): string {
  * 支持 $$...$$ 和 \[...\] 语法
  */
 export function renderBlockMath(text: string): string {
+  if (!text) return text;
+
   // $$...$$ 语法
   text = text.replace(/\$\$([^$]+)\$\$/g, (match, math) => {
     try {
@@ -167,6 +213,8 @@ export function renderBlockMath(text: string): string {
  * 先处理块级公式，再处理行内公式
  */
 export function renderAllMath(text: string): string {
+  if (!text) return text;
+
   text = renderBlockMath(text);
   text = renderInlineMath(text);
   return text;
@@ -241,10 +289,12 @@ export async function initECharts(): Promise<void> {
       return;
     }
 
+    // 清理旧实例（如果存在）
+    cleanupEChartsInstance(container as HTMLElement);
+
     try {
       // 解码并解析 JSON 配置
       const decodedConfig = decodeURIComponent(configData);
-      console.log('ECharts config:', decodedConfig); // 调试日志
       const config = JSON.parse(decodedConfig);
 
       // 创建图表实例
@@ -253,15 +303,18 @@ export async function initECharts(): Promise<void> {
       // 设置配置并渲染
       chart.setOption(config);
 
-      // 响应式调整
+      // 创建响应式观察器
       const resizeObserver = new ResizeObserver(() => {
         chart.resize();
       });
       resizeObserver.observe(container);
 
-      // 保存实例以便后续清理
-      (chartDiv as any).echartsInstance = chart;
-      (chartDiv as any).resizeObserver = resizeObserver;
+      // 存储实例以便后续清理
+      echartsInstances.set(container as HTMLElement, {
+        chart,
+        resizeObserver,
+        container: container as HTMLElement,
+      });
     } catch (error) {
       console.error('ECharts 渲染失败:', error);
       if (chartDiv) {
@@ -274,28 +327,6 @@ export async function initECharts(): Promise<void> {
           </details>
         </div>`;
       }
-    }
-  });
-}
-
-/**
- * 清理 ECharts 实例
- */
-export function cleanupECharts(): void {
-  if (typeof window === 'undefined') return;
-
-  const chartDivs = document.querySelectorAll('.echarts-chart');
-  
-  chartDivs.forEach((chartDiv) => {
-    const chart = (chartDiv as any).echartsInstance;
-    const resizeObserver = (chartDiv as any).resizeObserver;
-    
-    if (chart) {
-      chart.dispose();
-    }
-    
-    if (resizeObserver) {
-      resizeObserver.disconnect();
     }
   });
 }

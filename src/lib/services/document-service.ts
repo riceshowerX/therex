@@ -9,6 +9,15 @@ import { getSupabaseClient } from '@/storage/database/supabase-client';
 import { documents, folders, documentVersions } from '@/storage/database/schema';
 import type { Document, Folder, DocumentVersion } from '@/storage/database/schema';
 
+// 优化的字数计算函数
+function calculateWordCount(content: string): number {
+  if (!content || !content.trim()) return 0;
+  
+  // 使用正则表达式匹配单词，比 split 更准确
+  const words = content.trim().match(/[\w\u4e00-\u9fa5]+/g);
+  return words ? words.length : 0;
+}
+
 // ==================== 文档操作 ====================
 
 /**
@@ -20,7 +29,7 @@ export async function createDocument(
   folderId: string | null = null
 ): Promise<Document> {
   const client = getSupabaseClient();
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const wordCount = calculateWordCount(content);
 
   const { data, error } = await client
     .from('documents')
@@ -73,7 +82,7 @@ export async function updateDocument(
 
   // 计算字数
   const wordCount = updates.content !== undefined
-    ? (updates.content.trim() ? updates.content.trim().split(/\s+/).length : 0)
+    ? calculateWordCount(updates.content)
     : undefined;
 
   const { data, error } = await client

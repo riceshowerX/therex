@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
 import { defaultSystemPrompts } from '@/lib/ai-config';
 
+// 请求大小限制（1MB）
+const MAX_REQUEST_SIZE = 1 * 1024 * 1024;
+
 // AI 配置接口
 interface AIRequestConfig {
   provider: string;
@@ -29,8 +32,25 @@ interface AIRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    // 验证请求大小
+    const contentLength = parseInt(request.headers.get('content-length') || '0');
+    if (contentLength > MAX_REQUEST_SIZE) {
+      return NextResponse.json(
+        { error: '请求体过大，请减少内容' },
+        { status: 413 }
+      );
+    }
+
     const body: AIRequestBody = await request.json();
     const { action, content, selection, config: customConfig, chatHistory, userMessage, configId } = body;
+
+    // 验证必要参数
+    if (!action) {
+      return NextResponse.json(
+        { error: '缺少 action 参数' },
+        { status: 400 }
+      );
+    }
 
     // 测试连接
     if (action === 'test') {
@@ -40,6 +60,14 @@ export async function POST(request: NextRequest) {
     if (!content && !selection && action !== 'chat') {
       return NextResponse.json(
         { error: '请提供内容' },
+        { status: 400 }
+      );
+    }
+
+    // 验证 content 长度
+    if (content && content.length > 100000) {
+      return NextResponse.json(
+        { error: '内容过长，请分段处理' },
         { status: 400 }
       );
     }
@@ -64,6 +92,15 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('AI API error:', error);
+    
+    // 处理 JSON 解析错误
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: '请求格式错误' },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'AI 服务暂时不可用，请稍后重试' },
       { status: 500 }

@@ -106,6 +106,15 @@ class DocumentManager {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  // 计算字数的优化函数
+  private calculateWordCount(content: string): number {
+    if (!content || !content.trim()) return 0;
+    
+    // 使用正则表达式匹配单词，比 split 更准确
+    const words = content.trim().match(/[\w\u4e00-\u9fa5]+/g);
+    return words ? words.length : 0;
+  }
+
   // ==================== 文档操作 ====================
 
   // 创建新文档
@@ -119,7 +128,7 @@ class DocumentManager {
       updatedAt: now,
       isFavorite: false,
       tags: [],
-      wordCount: content.trim() ? content.trim().split(/\s+/).length : 0,
+      wordCount: this.calculateWordCount(content),
       folderId,
       versions: [],
     };
@@ -143,7 +152,7 @@ class DocumentManager {
     return this.documents.get(this.currentDocumentId);
   }
 
-  // 更新文档
+  // 更新文档（优化性能）
   updateDocument(id: string, updates: Partial<Document>): Document | undefined {
     const doc = this.documents.get(id);
     if (!doc) return undefined;
@@ -153,7 +162,7 @@ class DocumentManager {
       ...updates,
       updatedAt: Date.now(),
       wordCount: updates.content !== undefined 
-        ? (updates.content.trim() ? updates.content.trim().split(/\s+/).length : 0)
+        ? this.calculateWordCount(updates.content)
         : doc.wordCount,
     };
     
