@@ -1,25 +1,61 @@
 <div align="center">
 
+<img src="public/icons/logo.png" alt="Therex Logo" width="128" height="128">
+
 # ✨ Therex
 
 **Modern Markdown Editor with AI - Inspired by Theresa**
+
+*A powerful, elegant markdown editor with AI-powered writing assistance*
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/riceshowerX/therex?style=flat-square)](https://github.com/riceshowerX/therex/releases)
 
-[在线演示](#) | [功能特性](#-核心功能) | [快速开始](#-快速开始) | [部署指南](#-部署指南)
+[🌐 在线演示](https://1-seven-sepia-62.vercel.app/) · [📖 文档](#-核心功能) · [🚀 快速开始](#-快速开始) · [📦 部署](#-部署指南)
 
+</div>
+
+---
+
+## 📸 项目截图
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>编辑模式</b></td>
+      <td align="center"><b>深色主题</b></td>
+    </tr>
+    <tr>
+      <td><img src="public/screenshots/editor-light.png" alt="编辑器浅色模式" width="400"></td>
+      <td><img src="public/screenshots/editor-dark.png" alt="编辑器深色模式" width="400"></td>
+    </tr>
+  </table>
 </div>
 
 ---
 
 ## 📖 项目简介
 
-Therex 是一款功能丰富、界面现代的 Markdown 在线编辑器，基于 Next.js 16、React 19 和 TypeScript 构建。提供流畅的写作体验，集成 AI 智能写作助手、多文档管理、实时预览、版本历史等强大功能。
+Therex 是一款功能丰富、界面现代的 **Markdown 在线编辑器**，基于 Next.js 16、React 19 和 TypeScript 构建。提供流畅的写作体验，集成 AI 智能写作助手、多文档管理、实时预览、版本历史等强大功能。
 
+> 💡 **名字来源**：灵感来自明日方舟中的特蕾西娅（Theresa），象征着优雅与力量。
 
+### 🎯 为什么选择 Therex？
+
+| 特性 | Therex | 传统编辑器 |
+|------|--------|-----------|
+| AI 写作辅助 | ✅ 内置多种 AI 功能 | ❌ 无 |
+| 多语言支持 | ✅ 中英文切换 | ❌ 仅英文 |
+| 多存储后端 | ✅ 本地/云端可选 | ❌ 单一存储 |
+| 数学公式 | ✅ KaTeX 渲染 | ⚠️ 部分支持 |
+| 图表绘制 | ✅ Mermaid + ECharts | ❌ 无 |
+| 版本历史 | ✅ 本地快照 | ❌ 无 |
+| PWA 支持 | ✅ 可安装离线使用 | ❌ 无 |
+
+---
 
 ## ✨ 核心功能
 
@@ -27,216 +63,213 @@ Therex 是一款功能丰富、界面现代的 Markdown 在线编辑器，基于
 
 | 功能 | 说明 |
 |------|------|
-| 实时预览 | 支持 GitHub 风格 Markdown，所见即所得 |
-| 语法高亮 | 代码块支持多种编程语言高亮显示 |
-| 多视图模式 | 编辑模式、预览模式、分屏模式自由切换 |
-| 字体调节 | 编辑器字体大小可调节（10-24px） |
-| 深色主题 | 支持浅色/深色主题，自动跟随系统 |
-| 目录导航 | 自动生成文档目录，快速跳转 |
-| 数学公式 | 支持 KaTeX 数学公式渲染 |
-| 图表绘制 | 支持 Mermaid 流程图、时序图、ECharts 数据可视化 |
+| 🔄 **实时预览** | 支持 GitHub 风格 Markdown，所见即所得 |
+| 🎨 **语法高亮** | 代码块支持多种编程语言高亮显示 |
+| 📐 **多视图模式** | 编辑模式、预览模式、分屏模式自由切换 |
+| 🔤 **字体调节** | 编辑器字体大小可调节（10-24px） |
+| 🌙 **深色主题** | 支持浅色/深色主题，自动跟随系统 |
+| 📑 **目录导航** | 自动生成文档目录，快速跳转 |
+| 📐 **数学公式** | 支持 KaTeX 数学公式渲染 |
+| 📊 **图表绘制** | 支持 Mermaid 流程图、时序图、ECharts 数据可视化 |
 
 ### 📁 文档管理
 
-- **多文档支持** - 侧边栏文档列表，快速切换
-- **灵活存储** - 支持 localStorage、IndexedDB、Supabase、PostgreSQL、MongoDB 多种存储后端
-- **文档收藏** - 收藏重要文档，快速访问
-- **搜索过滤** - 按标题或内容搜索文档
-- **统计信息** - 字数、词数、行数、阅读时间、中英文比例
-- **数据迁移** - 在不同存储后端之间无缝迁移数据
+```
+📁 灵活的存储方案
+├── 💾 LocalStorage  - 轻量级本地存储
+├── 🗄️ IndexedDB     - 大容量本地数据库
+└── ☁️ Supabase      - 云端同步存储
 
-### 📂 文件夹管理
-
-- **创建文件夹** - 将文档分类整理到文件夹
-- **嵌套结构** - 支持多层级文件夹嵌套
-- **移动文档** - 在文件夹间自由移动文档
-- **文件夹颜色** - 自定义文件夹颜色标识
-- **快速导航** - 按文件夹浏览文档
-
-### 📜 版本历史
-
-- **手动保存** - `Ctrl+Shift+S` 保存当前版本
-- **版本列表** - 查看所有历史版本及时间戳
-- **一键恢复** - 快速恢复到任意历史版本
-- **版本限制** - 每个文档最多保存 20 个版本
+📊 智能统计
+├── 字数统计（中英文精准识别）
+├── 阅读时间估算
+└── 中英文比例分析
+```
 
 ### 🤖 AI 写作助手
 
 集成多种 AI 大模型，让写作更高效：
 
-| 功能 | 说明 |
-|------|------|
-| 续写内容 | AI 自然续写后续内容 |
-| 润色文本 | 提升文字流畅度和专业性 |
-| 扩展内容 | 添加更多细节和示例 |
-| 改写内容 | 换种方式表达相同意思 |
-| 生成摘要 | 提取文档核心要点 |
-| 生成大纲 | 创建结构化写作大纲 |
-| 生成标题 | 获取吸引人的标题建议 |
-| 翻译文本 | 中英文互译 |
-| 修正错误 | 语法和拼写纠错 |
-| 解释内容 | 简单易懂的内容解释 |
+<table>
+<tr>
+<td width="50%">
+
+**📝 写作增强**
+- 续写内容 - AI 自然续写
+- 润色文本 - 提升文字流畅度
+- 扩展内容 - 添加细节和示例
+- 改写内容 - 换种方式表达
+
+</td>
+<td width="50%">
+
+**🎯 智能生成**
+- 生成摘要 - 提取核心要点
+- 生成大纲 - 创建结构化框架
+- 生成标题 - 获取吸引人的标题
+- 翻译文本 - 中英文互译
+
+</td>
+</tr>
+</table>
 
 **支持的 AI 提供商：**
 
-| 提供商 | 说明 |
-|--------|------|
-| 🤖 豆包 | 字节跳动旗下大模型 |
-| 🧠 DeepSeek | 深度求索大模型 |
-| 💚 OpenAI | GPT 系列模型 |
-| 🌙 Kimi | 月之暗面大模型 |
-| ⚙️ 自定义 | OpenAI 兼容 API |
-
-### 💬 AI 对话模式
-
-- **多轮对话** - 与 AI 进行连续对话交流
-- **上下文理解** - AI 理解当前文档内容
-- **流式响应** - 实时显示 AI 回复内容
-- **添加到文档** - 一键将 AI 回复插入文档
-- **安全配置** - API Key 加密存储，服务端代理
+| 提供商 | 说明 | 推荐模型 |
+|--------|------|----------|
+| 🤖 [豆包](https://www.volcengine.com/product/doubao) | 字节跳动旗下大模型 | doubao-pro-256k |
+| 🧠 [DeepSeek](https://www.deepseek.com/) | 深度求索大模型 | deepseek-chat |
+| 💚 [OpenAI](https://openai.com/) | GPT 系列模型 | gpt-4o |
+| 🌙 [Kimi](https://kimi.moonshot.cn/) | 月之暗面大模型 | moonshot-v1-128k |
+| ⚙️ 自定义 | OpenAI 兼容 API | - |
 
 ### 📐 数学公式与图表
 
-#### 数学公式（KaTeX）
+<details>
+<summary><b>🔬 数学公式（KaTeX）</b></summary>
 
 支持 LaTeX 数学公式语法：
 
-- **行内公式**：`$E = mc^2$`
-- **块级公式**：`$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$`
+- **行内公式**：`$E = mc^2$` → $E = mc^2$
+- **块级公式**：
+```latex
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+```
 
-支持所有常用数学符号：分数、求和、积分、矩阵等。
+</details>
 
-#### 图表（Mermaid）
+<details>
+<summary><b>📊 图表绘制</b></summary>
 
-支持多种图表类型：
+**Mermaid 图表：** 流程图、时序图、类图、状态图、甘特图、饼图、思维导图、ER 图
 
-- 流程图、时序图、类图、状态图、甘特图、饼图、思维导图、ER 图
-
-#### 数据可视化（ECharts）
-
-支持强大的数据可视化功能：柱状图、折线图、饼图、散点图、雷达图、热力图等。
+**ECharts 可视化：** 柱状图、折线图、饼图、散点图、雷达图、热力图
 
 > 💡 查看 [数学公式与图表使用指南](docs/MATH_AND_CHARTS.md) 了解更多
 
+</details>
+
 ### 📤 导出功能
 
-支持多种格式导出：
-
-| 格式 | 说明 |
-|------|------|
-| Markdown (.md) | 原始 Markdown 文件 |
-| HTML | 带 GitHub CSS 样式的网页 |
-| PDF | 通过浏览器打印导出 |
-| Word (.doc) | 兼容 Microsoft Word |
-| 纯文本 (.txt) | 仅文本内容 |
-| JSON | 含元数据的数据格式 |
+| 格式 | 说明 | 适用场景 |
+|------|------|----------|
+| `.md` | 原始 Markdown 文件 | 跨平台使用 |
+| `.html` | 带 GitHub CSS 样式 | 网页发布 |
+| `.pdf` | 通过浏览器打印 | 文档分享 |
+| `.doc` | Microsoft Word 格式 | 协作编辑 |
+| `.txt` | 纯文本内容 | 简单存档 |
+| `.json` | 含元数据的数据格式 | 数据备份 |
 
 ### ⌨️ 快捷键
 
-| 快捷键 | 功能 |
-|--------|------|
-| `Ctrl + S` | 保存文档 |
-| `Ctrl + Shift + S` | 保存版本快照 |
-| `Ctrl + Z` | 撤销 |
-| `Ctrl + Shift + Z` | 重做 |
-| `Ctrl + F` | 查找替换 |
-| `Ctrl + K` | 打开 AI 对话 |
+| 快捷键 | 功能 | 说明 |
+|--------|------|------|
+| `Ctrl + S` | 保存文档 | 保存当前内容 |
+| `Ctrl + Shift + S` | 保存版本快照 | 创建历史版本 |
+| `Ctrl + Z` | 撤销 | 撤销上一步操作 |
+| `Ctrl + Shift + Z` | 重做 | 重做操作 |
+| `Ctrl + F` | 查找替换 | 搜索和替换文本 |
+| `Ctrl + K` | 打开 AI 对话 | 快速调用 AI |
 
-### 📱 PWA 支持
-
-- **安装应用** - 添加到桌面，像原生应用一样使用
-- **离线访问** - Service Worker 支持离线使用
-- **流畅体验** - 独立窗口运行，加载快速
+---
 
 ## 🛠️ 技术栈
 
-| 技术 | 用途 |
-|------|------|
-| Next.js 16 | 全栈框架（App Router） |
-| React 19 | UI 组件库 |
-| TypeScript 5 | 类型安全 |
-| Tailwind CSS 4 | 原子化 CSS |
-| shadcn/ui | UI 组件库 |
-| Supabase | PostgreSQL 数据库 |
-| Drizzle ORM | 数据库 ORM |
-| KaTeX | 数学公式渲染 |
-| Mermaid | 图表绘制 |
-| ECharts | 数据可视化 |
-| marked | Markdown 解析 |
+<table>
+<tr>
+<th>技术</th>
+<th>版本</th>
+<th>用途</th>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/nextdotjs/000000" width="20"> Next.js</td>
+<td>16</td>
+<td>全栈框架（App Router）</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/react/61DAFB" width="20"> React</td>
+<td>19</td>
+<td>UI 组件库</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/typescript/3178C6" width="20"> TypeScript</td>
+<td>5</td>
+<td>类型安全</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" width="20"> Tailwind CSS</td>
+<td>4</td>
+<td>原子化 CSS</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/supabase/3FCF8E" width="20"> Supabase</td>
+<td>-</td>
+<td>PostgreSQL 数据库</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/katex/000000" width="20"> KaTeX</td>
+<td>-</td>
+<td>数学公式渲染</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/mermaid/FF3670" width="20"> Mermaid</td>
+<td>-</td>
+<td>图表绘制</td>
+</tr>
+<tr>
+<td><img src="https://cdn.simpleicons.org/apacheecharts/AA344D" width="20"> ECharts</td>
+<td>-</td>
+<td>数据可视化</td>
+</tr>
+</table>
+
+---
 
 ## 📦 快速开始
 
 ### 环境要求
 
-- Node.js 18.0 或更高版本
-- pnpm 8.0 或更高版本（推荐）
-- Supabase 账户（可选，用于云同步）
+- Node.js `>= 18.0`
+- pnpm `>= 8.0`（推荐）或 npm / yarn
 
 ### 安装步骤
 
-1. **克隆项目**
-
 ```bash
+# 1. 克隆项目
 git clone https://github.com/riceshowerX/therex.git
 cd therex
-```
 
-2. **安装依赖**
-
-```bash
+# 2. 安装依赖
 pnpm install
-```
 
-3. **配置环境变量**
-
-```bash
+# 3. 配置环境变量（可选）
 cp .env.example .env.local
-```
 
-编辑 `.env.local` 文件，填入必要的配置：
-
-```env
-# Supabase 配置（可选，用于云同步）
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# AI 配置（可选）
-AI_API_KEY=your_ai_api_key
-AI_DEFAULT_MODEL=doubou
-```
-
-> 💡 **提示**：如果不配置 Supabase，应用默认使用浏览器本地存储（localStorage）。你可以在设置页面随时切换存储方式。
-
-4. **初始化数据库**
-
-```bash
-pnpm db:push
-```
-
-5. **启动开发服务器**
-
-```bash
+# 4. 启动开发服务器
 pnpm dev
 ```
 
 打开 [http://localhost:5000](http://localhost:5000) 查看应用。
 
-## 🚀 部署指南
+### 环境变量配置
+
+```env
+# Supabase 配置（可选，用于云同步）
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+---
+
+## 📦 部署指南
 
 ### Vercel 部署（推荐）
 
-1. Fork 本项目到你的 GitHub 账户
-
-2. 在 [Vercel](https://vercel.com) 导入项目
-
-3. 配置环境变量：
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `AI_API_KEY`（可选）
-
-4. 点击部署
-
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/riceshowerX/therex)
+
+1. 点击上方按钮，克隆项目到 Vercel
+2. 配置环境变量（可选）
+3. 点击 Deploy 完成部署
 
 ### Docker 部署
 
@@ -245,201 +278,72 @@ pnpm dev
 docker build -t therex .
 
 # 运行容器
-docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_SUPABASE_URL=your_url \
-  -e NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key \
-  therex
+docker run -p 3000:3000 therex
 ```
 
-### 自托管部署
+---
 
-1. **构建生产版本**
+## 🗺️ 路线图
+
+### ✅ 已完成
+
+- [x] 基础 Markdown 编辑器
+- [x] AI 写作助手
+- [x] 多文档管理
+- [x] 版本历史
+- [x] 数学公式与图表
+- [x] 多存储后端支持
+- [x] 国际化支持（中英文）
+- [x] PWA 安装支持
+
+### 🚧 进行中
+
+- [ ] 实时协作编辑
+- [ ] 文档分享功能
+- [ ] 移动端优化
+
+### 📋 计划中
+
+- [ ] 更多 AI 模型支持
+- [ ] 插件系统
+- [ ] 主题市场
+- [ ] 云端同步增强
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献代码、报告问题或提出建议！
 
 ```bash
-pnpm build
+# 1. Fork 项目
+# 2. 创建分支
+git checkout -b feature/your-feature
+
+# 3. 提交更改
+git commit -m 'feat: add some feature'
+
+# 4. 推送分支
+git push origin feature/your-feature
+
+# 5. 创建 Pull Request
 ```
 
-2. **启动服务**
-
-```bash
-pnpm start
-```
-
-默认运行在 `http://localhost:3000`，可通过 `PORT` 环境变量修改。
-
-## 🔧 配置说明
-
-### 环境变量
-
-| 变量名 | 必需 | 说明 |
-|--------|------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ⭕ | Supabase 项目 URL（用于云同步） |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ⭕ | Supabase 匿名密钥 |
-| `AI_API_KEY` | ⭕ | AI 服务 API 密钥 |
-| `AI_DEFAULT_MODEL` | ⭕ | 默认 AI 模型（默认：doubou） |
-| `AI_API_ENDPOINT` | ⭕ | AI API 端点 |
-| `NEXT_PUBLIC_APP_URL` | ⭕ | 应用 URL（用于生成链接） |
-| `NEXT_PUBLIC_APP_NAME` | ⭕ | 应用名称（默认：Therex） |
-
-### 存储选项
-
-Therex 支持多种存储后端，满足不同使用场景：
-
-| 存储类型 | 适用场景 | 需要配置 | 跨设备同步 |
-|---------|---------|---------|-----------|
-| localStorage | 快速开始 | 否 | 否 |
-| IndexedDB | 大量本地文档 | 否 | 否 |
-| Supabase | 跨设备同步 | 是 | 是 |
-| PostgreSQL | 自建服务 | 是 | 是 |
-| MongoDB | 文档存储 | 是 | 是 |
-
-> 💡 查看 [存储选项详细文档](docs/STORAGE.md) 了解配置方法。
-
-### Supabase 配置
-
-1. 在 [Supabase](https://supabase.com) 创建新项目
-
-2. 获取项目 URL 和匿名密钥：
-   - 进入 Settings > API
-   - 复制 `URL` 和 `anon public` 密钥
-
-3. 运行数据库迁移：
-   ```bash
-   pnpm db:push
-   ```
-
-### AI 模型配置
-
-支持多种 AI 提供商，在设置页面配置：
-
-1. **豆包（默认）**
-   - 模型：doubao-pro-32k
-   - 需要字节跳动 API Key
-
-2. **DeepSeek**
-   - 模型：deepseek-chat
-   - 需要 DeepSeek API Key
-
-3. **OpenAI**
-   - 模型：gpt-4 / gpt-3.5-turbo
-   - 需要 OpenAI API Key
-
-4. **Kimi**
-   - 模型：moonshot-v1
-   - 需要月之暗面 API Key
-
-5. **自定义**
-   - 支持 OpenAI 兼容 API
-   - 可配置自定义端点
-
-## 📁 项目结构
-
-```
-therex/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── api/                # API 路由
-│   │   │   ├── ai-assist/      # AI 助手 API
-│   │   │   └── ai-config/      # AI 配置 API
-│   │   ├── settings/           # 设置页面
-│   │   ├── layout.tsx          # 根布局
-│   │   └── page.tsx            # 首页（编辑器）
-│   ├── components/             # React 组件
-│   │   ├── ui/                 # shadcn/ui 组件
-│   │   ├── markdown-editor.tsx # 主编辑器
-│   │   ├── markdown-preview.tsx# 预览组件
-│   │   ├── document-stats.tsx  # 文档统计
-│   │   ├── shortcut-panel.tsx  # 快捷键面板
-│   │   ├── export-dialog.tsx   # 导出对话框
-│   │   ├── storage-settings.tsx# 存储配置组件
-│   │   └── ...
-│   ├── lib/                    # 工具库
-│   │   ├── storage/            # 存储抽象层
-│   │   │   ├── types.ts        # 存储类型定义
-│   │   │   ├── adapters/       # 存储适配器
-│   │   │   │   ├── local-storage.ts      # localStorage 适配器
-│   │   │   │   ├── indexeddb-storage.ts  # IndexedDB 适配器
-│   │   │   │   └── supabase-storage.ts   # Supabase 适配器
-│   │   │   └── index.ts        # 存储管理器
-│   │   ├── document-manager.ts # 文档管理（旧）
-│   │   ├── markdown-renderer.ts# Markdown 渲染
-│   │   ├── export-utils.ts     # 导出工具
-│   │   ├── ai-config.ts        # AI 配置
-│   │   └── ...
-│   ├── hooks/                  # React Hooks
-│   │   └── use-editor.ts       # 编辑器 Hooks
-│   └── styles/                 # 样式文件
-├── docs/                       # 文档
-│   ├── MATH_AND_CHARTS.md      # 数学公式与图表指南
-│   └── STORAGE.md              # 存储选项指南
-├── public/                     # 静态资源
-├── .env.example                # 环境变量示例
-├── drizzle.config.ts           # Drizzle ORM 配置
-├── next.config.ts              # Next.js 配置
-├── tailwind.config.ts          # Tailwind CSS 配置
-└── package.json                # 项目依赖
-```
-
-## 🧪 开发指南
-
-### 可用脚本
-
-```bash
-# 开发
-pnpm dev          # 启动开发服务器
-pnpm build        # 构建生产版本
-pnpm start        # 启动生产服务器
-pnpm lint         # 运行 ESLint
-pnpm ts-check     # TypeScript 类型检查
-
-# 数据库
-pnpm db:push      # 推送数据库变更
-pnpm db:generate  # 生成迁移文件
-pnpm db:studio    # 打开 Drizzle Studio
-```
-
-### 代码规范
-
-- 使用 ESLint + TypeScript 严格模式
-- 遵循 Airbnb 代码风格
-- 组件使用 PascalCase 命名
-- 函数使用 camelCase 命名
-- 常量使用 UPPER_SNAKE_CASE 命名
-
-### 提交规范
-
-使用 [Conventional Commits](https://www.conventionalcommits.org/)：
-
-```
-feat: 添加新功能
-fix: 修复 bug
-docs: 文档更新
-style: 代码格式调整
-refactor: 代码重构
-perf: 性能优化
-test: 测试相关
-chore: 构建/工具相关
-```
-
-## 🔒 安全性
-
-- **API Key 安全**：所有敏感 API 调用通过服务端代理
-- **输入验证**：所有用户输入进行严格验证
-- **XSS 防护**：Markdown 渲染内容经过安全处理
-- **CSRF 防护**：使用 Next.js 内置 CSRF 保护
-- **Rate Limiting**：API 接口实现请求限流
+---
 
 ## 📄 许可证
 
 本项目采用 [MIT](LICENSE) 许可证。
 
+---
+
 ## 🙏 致谢
 
 - [Next.js](https://nextjs.org/) - React 框架
 - [shadcn/ui](https://ui.shadcn.com/) - UI 组件
-- [Supabase](https://supabase.com/) - 数据库服务
-- [KaTeX](https://katex.org/) - 数学公式渲染
-- [Mermaid](https://mermaid.js.org/) - 图表绘制
+- [marked](https://marked.js.org/) - Markdown 解析
+- [KaTeX](https://katex.org/) - 数学公式
+- [Mermaid](https://mermaid.js.org/) - 图表
 - [ECharts](https://echarts.apache.org/) - 数据可视化
 
 ---
@@ -448,6 +352,8 @@ chore: 构建/工具相关
 
 **[⬆ 返回顶部](#-therex)**
 
-Made with ❤️ by Therex Team | Inspired by Theresa
+Made with ❤️ by [Therex Team](https://github.com/riceshowerX)
+
+如果这个项目对你有帮助，请给一个 ⭐️ Star 支持一下！
 
 </div>
