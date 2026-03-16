@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-03-16
+
+### 🎨 美化与优化
+
+#### 📖 README 全新改版
+- 全新设计的 README 布局，更加美观专业
+- 添加在线演示链接：https://1-seven-sepia-62.vercel.app/
+- 添加功能对比表格，突出项目优势
+- 添加技术栈图标展示
+- 添加详细的功能说明和快捷键表格
+- 添加项目路线图和贡献指南
+
+#### 🖼️ 新 Logo
+- 生成特蕾西娅风格的魔王皇冠 Logo
+- 深紫色与金色的优雅配色
+- 极简风格，适合作为应用图标
+
+#### 🔧 配置优化
+- 更新 manifest.json 使用新 Logo
+- 添加 Turbopack 配置以兼容 Next.js 16 部署
+
+### 🐛 Bug 修复
+
+- 修复 Vercel 部署时 Turbopack 配置冲突问题
+
 ## [1.1.0] - 2025-03-16
 
 ### ✨ 新功能
