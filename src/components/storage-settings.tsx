@@ -118,21 +118,9 @@ export function StorageSettings() {
   // 加载当前配置
   useEffect(() => {
     const manager = getStorageManager();
-    const config = manager.getConfig();
-    if (config) {
-      setCurrentProvider(config.provider);
-      if (config.provider === 'supabase') {
-        const sc = config as SupabaseStorageConfig;
-        setSupabaseConfig({
-          url: sc.url,
-          anonKey: sc.anonKey,
-          serviceRoleKey: sc.serviceRoleKey || '',
-        });
-      } else if (config.provider === 'indexeddb') {
-        const ic = config as IndexedDBStorageConfig;
-        setIndexedDBConfig({ dbName: ic.dbName });
-      }
-    }
+    const provider = manager.getConfig();
+    setCurrentProvider(provider);
+    // 配置详细信息需要用户重新输入或从其他地方加载
   }, []);
 
   // 切换存储提供商
@@ -233,7 +221,7 @@ export function StorageSettings() {
         setMigrationProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const result = await manager.migrateTo(pendingConfig);
+      const result = await manager.migrateTo(pendingConfig.provider, pendingConfig);
       
       clearInterval(progressInterval);
       setMigrationProgress(100);

@@ -110,7 +110,7 @@ import {
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
-import { documentManager, type Document, type Folder as FolderType, type DocumentVersion } from '@/lib/document-manager';
+import { documentManager, type Document, type Folder as FolderType, type DocumentVersion } from '@/lib/storage/manager';
 import { templates, templateCategories, getTemplatesByCategory, getTemplateById } from '@/lib/templates';
 import { aiConfigManager } from '@/lib/ai-config';
 import { MarkdownPreview } from '@/components/markdown-preview';

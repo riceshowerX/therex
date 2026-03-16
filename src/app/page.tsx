@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import MarkdownEditor from '@/components/markdown-editor';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 export const metadata: Metadata = {
   title: 'Editor',
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <MarkdownEditor />;
+  return (
+    <ErrorBoundary>
+      <MarkdownEditor />
+    </ErrorBoundary>
+  );
 }
