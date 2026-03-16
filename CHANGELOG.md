@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### 📖 README 全新改版
 - 全新设计的 README 布局，更加美观专业
-- 添加在线演示链接：https://1-seven-sepia-62.vercel.app/
 - 添加功能对比表格，突出项目优势
 - 添加技术栈图标展示
 - 添加详细的功能说明和快捷键表格

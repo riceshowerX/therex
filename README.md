@@ -14,25 +14,8 @@
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/riceshowerX/therex?style=flat-square)](https://github.com/riceshowerX/therex/releases)
 
-[🌐 在线演示](https://1-seven-sepia-62.vercel.app/) · [📖 文档](#-核心功能) · [🚀 快速开始](#-快速开始) · [📦 部署](#-部署指南)
+[📖 文档](#-核心功能) · [🚀 快速开始](#-快速开始) · [📦 部署](#-部署指南)
 
-</div>
-
----
-
-## 📸 项目截图
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><b>编辑模式</b></td>
-      <td align="center"><b>深色主题</b></td>
-    </tr>
-    <tr>
-      <td><img src="public/screenshots/editor-light.png" alt="编辑器浅色模式" width="400"></td>
-      <td><img src="public/screenshots/editor-dark.png" alt="编辑器深色模式" width="400"></td>
-    </tr>
-  </table>
 </div>
 
 ---
