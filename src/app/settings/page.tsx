@@ -61,8 +61,11 @@ import { usePWAInstall } from '@/hooks/use-pwa-install';
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { language, setLanguage, t } = useI18n();
+  const { language, setLanguage, t, mounted: i18nMounted } = useI18n();
   const { canInstall, isInstalled, isSupported, install } = usePWAInstall();
+  
+  // 客户端挂载状态
+  const [mounted, setMounted] = useState(false);
   
   // AI 配置状态
   const [config, setConfig] = useState<AIConfig>(aiConfigManager.getConfig());
@@ -76,6 +79,7 @@ export default function SettingsPage() {
 
   // 加载设置
   useEffect(() => {
+    setMounted(true);
     const savedFontSize = localStorage.getItem('editor-font-size');
     if (savedFontSize) {
       setEditorFontSize(parseInt(savedFontSize));
@@ -492,19 +496,23 @@ export default function SettingsPage() {
                     切换编辑器主题
                   </p>
                 </div>
-                <Select
-                  value={theme}
-                  onValueChange={setTheme}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">浅色</SelectItem>
-                    <SelectItem value="dark">深色</SelectItem>
-                    <SelectItem value="system">跟随系统</SelectItem>
-                  </SelectContent>
-                </Select>
+                {mounted ? (
+                  <Select
+                    value={theme}
+                    onValueChange={setTheme}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">浅色</SelectItem>
+                      <SelectItem value="dark">深色</SelectItem>
+                      <SelectItem value="system">跟随系统</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-32 h-9 bg-muted rounded-md animate-pulse" />
+                )}
               </div>
 
               <Separator />
@@ -533,24 +541,28 @@ export default function SettingsPage() {
                 <div className="space-y-0.5">
                   <Label>{t.settings.appearance.language}</Label>
                   <p className="text-xs text-muted-foreground">
-                    {language === 'zh' ? '切换应用显示语言' : 'Switch display language'}
+                    {i18nMounted && language === 'zh' ? '切换应用显示语言' : 'Switch display language'}
                   </p>
                 </div>
-                <Select
-                  value={language}
-                  onValueChange={(value) => {
-                    setLanguage(value as 'zh' | 'en');
-                    toast.success(t.settings.appearance.languageSaved);
-                  }}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="zh">{t.settings.appearance.chinese}</SelectItem>
-                    <SelectItem value="en">{t.settings.appearance.english}</SelectItem>
-                  </SelectContent>
-                </Select>
+                {i18nMounted ? (
+                  <Select
+                    value={language}
+                    onValueChange={(value) => {
+                      setLanguage(value as 'zh' | 'en');
+                      toast.success(t.settings.appearance.languageSaved);
+                    }}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="zh">{t.settings.appearance.chinese}</SelectItem>
+                      <SelectItem value="en">{t.settings.appearance.english}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="w-32 h-9 bg-muted rounded-md animate-pulse" />
+                )}
               </div>
             </CardContent>
           </Card>
