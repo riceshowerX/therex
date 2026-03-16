@@ -952,13 +952,13 @@ ${content}
               <ScrollArea className="flex-1">
                 <div className="p-2 space-y-1">
                   {/* 收藏的文档 */}
-                  {documentManager.getFavoriteDocuments().length > 0 && (
+                  {documents.filter(doc => doc.isFavorite).length > 0 && (
                     <div className="mb-3">
                       <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
                         <Star className="h-3 w-3" />
                         收藏
                       </div>
-                      {documentManager.getFavoriteDocuments().map((doc) => (
+                      {documents.filter(doc => doc.isFavorite).map((doc) => (
                         <div
                           key={doc.id}
                           className={`group flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors ${
@@ -978,13 +978,62 @@ ${content}
                               {formatTime(doc.updatedAt)} · {doc.wordCount} 词
                             </div>
                           </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => handleToggleFavorite(doc.id)}>
+                                <StarOff className="h-4 w-4 mr-2" /> 取消收藏
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDuplicateDocument(doc.id)}>
+                                <Copy className="h-4 w-4 mr-2" /> 复制
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                  <Folder className="h-4 w-4 mr-2" /> 移动到文件夹
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                  <DropdownMenuItem onClick={() => handleMoveDocument(doc.id, null)}>
+                                    <FileText className="h-4 w-4 mr-2" /> 根目录
+                                  </DropdownMenuItem>
+                                  {folders.map((folder) => (
+                                    <DropdownMenuItem 
+                                      key={folder.id}
+                                      onClick={() => handleMoveDocument(doc.id, folder.id)}
+                                    >
+                                      <FolderOpen className="h-4 w-4 mr-2" /> {folder.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => {
+                                  setDocToDelete(doc.id);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> 删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       ))}
                     </div>
                   )}
                   
-                  {/* 所有文档 */}
-                  {documents.map((doc) => (
+                  {/* 所有文档（排除已收藏的） */}
+                  {documents.filter(doc => !doc.isFavorite).map((doc) => (
                     <div
                       key={doc.id}
                       className={`group flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors ${
@@ -998,9 +1047,6 @@ ${content}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
                           <span className="text-sm font-medium truncate">{doc.title}</span>
-                          {doc.isFavorite && (
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
-                          )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>{formatTime(doc.updatedAt)}</span>
@@ -1021,15 +1067,7 @@ ${content}
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem onClick={() => handleToggleFavorite(doc.id)}>
-                            {doc.isFavorite ? (
-                              <>
-                                <StarOff className="h-4 w-4 mr-2" /> 取消收藏
-                              </>
-                            ) : (
-                              <>
-                                <Star className="h-4 w-4 mr-2" /> 收藏
-                              </>
-                            )}
+                            <Star className="h-4 w-4 mr-2" /> 收藏
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicateDocument(doc.id)}>
                             <Copy className="h-4 w-4 mr-2" /> 复制
