@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-03-16
+
+### 🚀 生产环境优化
+
+#### 🔒 安全增强
+- 添加安全响应头（CSP、HSTS、X-Frame-Options 等）
+- 实现内容安全策略（Content Security Policy）
+- 添加权限策略限制
+- 配置引用策略
+
+#### ⚡ 性能优化
+- 配置图片优化（AVIF、WebP 格式）
+- 启用静态资源长期缓存
+- 配置包导入优化（lucide-react、marked 等）
+- 启用 Tree Shaking 和代码压缩
+- 移除生产环境 console.log
+
+#### 🔍 SEO 优化
+- 创建 sitemap.ts 自动生成站点地图
+- 创建 robots.ts 配置搜索引擎爬虫
+- 增强元数据配置（OpenGraph、Twitter Card）
+- 添加搜索引擎索引配置
+
+#### 📊 监控与日志
+- 创建结构化日志系统（src/lib/logger.ts）
+- 敏感信息自动脱敏
+- 创建全局错误页面（global-error.tsx）
+- 添加加载状态组件
+
+#### 🐳 部署优化
+- 创建 Dockerfile（多阶段构建）
+- 创建 docker-compose.yml
+- 创建 .dockerignore
+- 配置 standalone 输出模式
+- 移除 X-Powered-By 响应头
+
+#### 📝 文档更新
+- 更新 .env.example 配置示例
+- 移除 react-dev-inspector 依赖
+
 ## [1.2.0] - 2025-03-16
 
 ### 🎨 美化与优化

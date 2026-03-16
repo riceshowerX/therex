@@ -1,0 +1,53 @@
+# 依赖
+node_modules
+.pnpm-store
+
+# 构建产物
+.next
+out
+build
+dist
+
+# 开发文件
+.env.local
+.env.development
+.env.test
+*.log
+
+# 编辑器
+.idea
+.vscode
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 测试
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+__tests__
+
+# 文档
+README.md
+CHANGELOG.md
+docs
+*.md
+
+# 其他
+.github
+.vscode
+.husky
+.eslintcache

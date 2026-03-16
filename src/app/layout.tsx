@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inspector } from 'react-dev-inspector';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PWAInstaller } from '@/components/pwa-installer';
@@ -18,6 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // 基础元数据
   title: {
     default: 'Therex - Modern Markdown Editor with AI',
     template: '%s | Therex',
@@ -35,9 +35,19 @@ export const metadata: Metadata = {
     'Syntax Highlighting',
     'Export',
     'Next.js',
+    'React',
+    'TypeScript',
   ],
-  authors: [{ name: 'Therex Team' }],
+  authors: [{ name: 'Therex Team', url: 'https://github.com/riceshowerX' }],
+  creator: 'Therex Team',
+  publisher: 'Therex Team',
   generator: 'Next.js',
+  
+  // 应用信息
+  applicationName: 'Therex',
+  category: 'Productivity',
+  
+  // PWA 配置
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -46,17 +56,60 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+    email: false,
+    address: false,
   },
+  
+  // 搜索引擎索引
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  
+  // Open Graph
   openGraph: {
-    title: 'Therex - Modern Markdown Editor with AI',
-    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview. Inspired by Theresa.',
     type: 'website',
-    locale: 'en_US',
+    locale: 'zh_CN',
+    alternateLocale: 'en_US',
+    title: 'Therex - Modern Markdown Editor with AI',
+    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview.',
+    siteName: 'Therex',
+    images: [
+      {
+        url: '/icons/logo.png',
+        width: 1024,
+        height: 1024,
+        alt: 'Therex Logo',
+      },
+    ],
   },
+  
+  // Twitter Card
   twitter: {
     card: 'summary_large_image',
     title: 'Therex - Modern Markdown Editor with AI',
-    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview. Inspired by Theresa.',
+    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview.',
+    images: ['/icons/logo.png'],
+    creator: '@therex',
+  },
+  
+  // 其他元数据
+  bookmarks: ['https://github.com/riceshowerX/therex'],
+  icons: {
+    icon: [
+      { url: '/icons/logo.png', sizes: '1024x1024' },
+      { url: '/icons/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/icons/logo.png', sizes: '1024x1024' },
+    ],
   },
 };
 
@@ -65,8 +118,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isDev = process.env.NODE_ENV === 'development';
-
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={`antialiased`}>
@@ -78,7 +129,6 @@ export default function RootLayout({
         >
           <ErrorBoundary>
             <I18nProvider>
-              {isDev && <Inspector />}
               {children}
               <PWAInstaller />
             </I18nProvider>
