@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PWAInstaller } from '@/components/pwa-installer';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { I18nProvider } from '@/lib/i18n';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -76,9 +77,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ErrorBoundary>
-            {isDev && <Inspector />}
-            {children}
-            <PWAInstaller />
+            <I18nProvider>
+              {isDev && <Inspector />}
+              {children}
+              <PWAInstaller />
+            </I18nProvider>
           </ErrorBoundary>
         </ThemeProvider>
       </body>

@@ -40,6 +40,12 @@ import {
   MessageSquare,
   TestTube,
   Loader2,
+  Globe,
+  Download,
+  Smartphone,
+  Wifi,
+  Bell,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -49,10 +55,14 @@ import {
   providerPresets,
 } from '@/lib/ai-config';
 import { StorageSettings } from '@/components/storage-settings';
+import { useI18n } from '@/lib/i18n';
+import { usePWAInstall } from '@/hooks/use-pwa-install';
 
 export default function SettingsPage() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { language, setLanguage, t } = useI18n();
+  const { canInstall, isInstalled, isSupported, install } = usePWAInstall();
   
   // AI 配置状态
   const [config, setConfig] = useState<AIConfig>(aiConfigManager.getConfig());
@@ -164,9 +174,9 @@ export default function SettingsPage() {
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
-            返回编辑器
+            {t.settings.backToEditor}
           </Button>
-          <h1 className="ml-4 text-lg font-semibold">设置</h1>
+          <h1 className="ml-4 text-lg font-semibold">{t.settings.title}</h1>
         </div>
       </header>
 
@@ -501,8 +511,107 @@ export default function SettingsPage() {
 
               <Button onClick={handleSaveEditorSettings} className="gap-2">
                 <Save className="h-4 w-4" />
-                保存编辑器设置
+                {t.common.save}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* 外观设置 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                <CardTitle>{t.settings.appearance.title}</CardTitle>
+              </div>
+              <CardDescription>
+                {t.settings.appearance.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* 语言切换 */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t.settings.appearance.language}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '切换应用显示语言' : 'Switch display language'}
+                  </p>
+                </div>
+                <Select
+                  value={language}
+                  onValueChange={(value) => {
+                    setLanguage(value as 'zh' | 'en');
+                    toast.success(t.settings.appearance.languageSaved);
+                  }}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zh">{t.settings.appearance.chinese}</SelectItem>
+                    <SelectItem value="en">{t.settings.appearance.english}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PWA 安装 */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                <CardTitle>{t.settings.pwa.title}</CardTitle>
+              </div>
+              <CardDescription>
+                {t.settings.pwa.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* 安装状态 */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t.settings.pwa.install}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t.settings.pwa.installPrompt}
+                  </p>
+                </div>
+                {isInstalled ? (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-sm font-medium">{t.settings.pwa.installed}</span>
+                  </div>
+                ) : canInstall ? (
+                  <Button onClick={install} className="gap-2">
+                    <Download className="h-4 w-4" />
+                    {t.settings.pwa.install}
+                  </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {t.settings.pwa.notSupported}
+                  </span>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* PWA 功能列表 */}
+              <div className="space-y-3">
+                <Label>{t.settings.pwa.features}</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                    <Wifi className="h-4 w-4 text-primary" />
+                    <span className="text-sm">{t.settings.pwa.offline}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                    <Smartphone className="h-4 w-4 text-primary" />
+                    <span className="text-sm">{t.settings.pwa.shortcuts}</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
+                    <Bell className="h-4 w-4 text-primary" />
+                    <span className="text-sm">{t.settings.pwa.notifications}</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
