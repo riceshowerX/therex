@@ -1,8 +1,8 @@
-# MarkFlow 升级路线图
+# Therex 升级路线图
 
 ## 当前状态
 
-MarkFlow 目前是一个功能完整的本地 Markdown 编辑器，具备：
+Therex 目前是一个功能完整的本地 Markdown 编辑器，具备：
 - ✅ 实时预览
 - ✅ 多文档管理
 - ✅ AI 写作助手（多模型支持）

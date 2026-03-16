@@ -36,8 +36,8 @@ export interface Document {
 
 // 文档管理类
 class DocumentManager {
-  private readonly STORAGE_KEY = 'markflow-documents';
-  private readonly FOLDERS_KEY = 'markflow-folders';
+  private readonly STORAGE_KEY = 'therex-documents';
+  private readonly FOLDERS_KEY = 'therex-folders';
   private documents: Map<string, Document> = new Map();
   private folders: Map<string, Folder> = new Map();
   private currentDocumentId: string | null = null;

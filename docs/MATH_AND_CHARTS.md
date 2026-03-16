@@ -260,7 +260,7 @@ pie title 技术栈分布
 
 ```mermaid
 mindmap
-  root((MarkFlow))
+  root((Therex))
     编辑器
       Markdown
       实时预览
@@ -446,7 +446,7 @@ graph TB
 
 ## 快速开始
 
-1. 打开 MarkFlow 编辑器
+1. 打开 Therex 编辑器
 2. 创建新文档或选择"数学公式与图表"模板
 3. 输入数学公式或图表代码
 4. 切换到预览模式查看渲染效果

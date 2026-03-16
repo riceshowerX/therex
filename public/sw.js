@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = 'markflow-v1.0.0';
-const STATIC_CACHE_NAME = 'markflow-static-v1.0.0';
+const CACHE_NAME = 'therex-v1.0.0';
+const STATIC_CACHE_NAME = 'therex-static-v1.0.0';
 
 // 静态资源列表
 const STATIC_ASSETS = [

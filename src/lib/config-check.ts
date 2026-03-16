@@ -86,7 +86,7 @@ export function checkProductionConfig(): {
   // 生产环境额外检查
   if (isProduction) {
     // 检查是否使用了默认值
-    if (process.env.NEXT_PUBLIC_APP_NAME === 'MarkFlow') {
+    if (process.env.NEXT_PUBLIC_APP_NAME === 'Therex') {
       warnings.push('[NEXT_PUBLIC_APP_NAME] 使用了默认值，建议修改为您的应用名称');
     }
 

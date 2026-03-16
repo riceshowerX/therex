@@ -1,5 +1,5 @@
 /**
- * MarkFlow 数据库 Schema
+ * Therex 数据库 Schema
  *
  * 包含以下表：
  * - documents: 文档表

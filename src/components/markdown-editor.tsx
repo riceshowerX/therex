@@ -119,7 +119,6 @@ import { ShortcutPanel } from '@/components/shortcut-panel';
 import { AutoSaveStatus } from '@/components/auto-save-status';
 import { ExportDialog } from '@/components/export-dialog';
 import { EditorToolbar } from '@/components/editor-toolbar';
-import { useAutoSave, useOnlineStatus } from '@/hooks/use-editor';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(

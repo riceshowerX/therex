@@ -200,7 +200,7 @@ console.log(example);
     icon: '📊',
     content: `# 数学公式与图表演示
 
-本文档演示 MarkFlow 的数学公式和图表渲染功能。
+本文档演示 Therex 的数学公式和图表渲染功能。
 
 ## 数学公式
 
@@ -415,7 +415,7 @@ pie title 技术栈分布
 
 \`\`\`mermaid
 mindmap
-  root((MarkFlow))
+  root((Therex))
     编辑器
       Markdown
       实时预览

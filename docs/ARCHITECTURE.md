@@ -1,8 +1,8 @@
-# MarkFlow 架构文档
+# Therex 架构文档
 
 ## 项目概述
 
-MarkFlow 是一个现代化的 Markdown 编辑器，基于 Next.js 16、React 19 和 TypeScript 构建。采用 Supabase 作为后端数据库，支持 AI 写作助手、多文档管理、实时预览等功能。
+Therex 是一个现代化的 Markdown 编辑器，基于 Next.js 16、React 19 和 TypeScript 构建。采用 Supabase 作为后端数据库，支持 AI 写作助手、多文档管理、实时预览等功能。
 
 ## 技术栈
 
@@ -32,7 +32,7 @@ MarkFlow 是一个现代化的 Markdown 编辑器，基于 Next.js 16、React 19
 ## 项目结构
 
 ```
-markflow/
+therex/
 ├── src/
 │   ├── app/                    # Next.js App Router
 │   │   ├── api/               # API 路由

@@ -1,6 +1,6 @@
-# MarkFlow 部署指南
+# Therex 部署指南
 
-本文档介绍如何将 MarkFlow 部署到生产环境。
+本文档介绍如何将 Therex 部署到生产环境。
 
 ## 目录
 
@@ -29,8 +29,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/riceshowerX/markflow.git
-cd markflow
+git clone https://github.com/riceshowerX/therex.git
+cd therex
 ```
 
 ### 2. 安装依赖
@@ -62,7 +62,7 @@ AI_API_KEY=your_ai_api_key
 
 # 应用配置
 NEXT_PUBLIC_APP_URL=https://your-domain.com
-NEXT_PUBLIC_APP_NAME=MarkFlow
+NEXT_PUBLIC_APP_NAME=Therex
 
 # 错误监控（可选）
 NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
@@ -130,7 +130,7 @@ SENTRY_AUTH_TOKEN=your_sentry_auth_token
 1. **创建数据库**
 
    ```sql
-   CREATE DATABASE markflow;
+   CREATE DATABASE therex;
    ```
 
 2. **配置连接字符串**
@@ -138,7 +138,7 @@ SENTRY_AUTH_TOKEN=your_sentry_auth_token
    在 `.env.local` 中设置：
 
    ```env
-   DATABASE_URL=postgresql://user:password@host:5432/markflow
+   DATABASE_URL=postgresql://user:password@host:5432/therex
    ```
 
 3. **运行迁移**
@@ -199,14 +199,14 @@ Vercel 是 Next.js 的官方托管平台，部署最简单。
 
 ```bash
 # 构建镜像
-docker build -t markflow .
+docker build -t therex .
 
 # 运行容器
 docker run -p 5000:5000 \
   -e NEXT_PUBLIC_SUPABASE_URL=your_url \
   -e NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key \
   -e SUPABASE_SERVICE_ROLE_KEY=your_service_key \
-  markflow
+  therex
 ```
 
 #### 使用 Docker Compose
@@ -217,7 +217,7 @@ docker run -p 5000:5000 \
 version: '3.8'
 
 services:
-  markflow:
+  therex:
     build: .
     ports:
       - "5000:5000"
@@ -254,7 +254,7 @@ docker-compose up -d
 3. **使用 PM2 启动**
 
    ```bash
-   pm2 start pnpm --name "markflow" -- start
+   pm2 start pnpm --name "therex" -- start
    ```
 
 4. **设置开机自启**
@@ -310,10 +310,10 @@ Supabase 提供每日自动备份，可在控制台下载。
 
 ```bash
 # 使用 pg_dump
-pg_dump postgresql://user:password@host:5432/markflow > backup.sql
+pg_dump postgresql://user:password@host:5432/therex > backup.sql
 
 # 恢复
-psql postgresql://user:password@host:5432/markflow < backup.sql
+psql postgresql://user:password@host:5432/therex < backup.sql
 ```
 
 ### 2. 监控和日志
@@ -328,10 +328,10 @@ psql postgresql://user:password@host:5432/markflow < backup.sql
 
 ```bash
 # 使用 PM2 查看日志
-pm2 logs markflow
+pm2 logs therex
 
 # 使用 systemd 查看日志
-journalctl -u markflow -f
+journalctl -u therex -f
 ```
 
 ### 3. 更新部署
@@ -347,7 +347,7 @@ pnpm install
 pnpm run build
 
 # 重启服务
-pm2 restart markflow
+pm2 restart therex
 ```
 
 ### 4. 数据库迁移
@@ -420,7 +420,7 @@ pnpm run db:generate
 ## 联系支持
 
 如有问题，请：
-- 查看 [GitHub Issues](https://github.com/riceshowerX/markflow/issues)
+- 查看 [GitHub Issues](https://github.com/riceshowerX/therex/issues)
 - 阅读 [架构文档](./ARCHITECTURE.md)
 - 提交新的 Issue 或 PR
 

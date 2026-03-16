@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Settings',
-  description: 'Configure AI providers, API keys, and editor preferences for MarkFlow.',
+  description: 'Configure AI providers, API keys, and editor preferences for Therex.',
 };
 
 export default function SettingsLayout({

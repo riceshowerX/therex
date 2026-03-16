@@ -51,7 +51,7 @@ export function PWAInstaller() {
     const { outcome } = await (deferredPrompt as BeforeInstallPromptEvent).userChoice;
 
     if (outcome === 'accepted') {
-      toast.success('MarkFlow has been installed!');
+      toast.success('Therex has been installed!');
     }
 
     setDeferredPrompt(null);
@@ -67,9 +67,9 @@ export function PWAInstaller() {
           <Download className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-sm">Install MarkFlow</h3>
+          <h3 className="font-semibold text-sm">Install Therex</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Install MarkFlow for offline access and a better experience.
+            Install Therex for offline access and a better experience.
           </p>
         </div>
         <Button

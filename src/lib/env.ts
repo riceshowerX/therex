@@ -19,7 +19,7 @@ const envSchema = z.object({
 
   // 应用配置
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:5000'),
-  NEXT_PUBLIC_APP_NAME: z.string().default('MarkFlow'),
+  NEXT_PUBLIC_APP_NAME: z.string().default('Therex'),
 
   // 错误监控（可选）
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
