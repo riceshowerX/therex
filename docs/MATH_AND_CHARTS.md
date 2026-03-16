@@ -2,7 +2,7 @@
 
 ## 支持的功能
 
-MarkFlow 现已支持：
+Therex 现已支持：
 - ✅ 数学公式渲染（KaTeX）
 - ✅ 数据可视化图表（ECharts）
 - ✅ 流程图、时序图等图表（Mermaid）

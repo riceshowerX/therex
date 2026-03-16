@@ -18,13 +18,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'MarkFlow - Modern Markdown Editor with AI',
-    template: '%s | MarkFlow',
+    default: 'Therex - Modern Markdown Editor with AI',
+    template: '%s | Therex',
   },
   description:
-    'MarkFlow is a modern Markdown editor with AI-powered writing assistance, multi-document management, real-time preview, and extensive export options.',
+    'Therex is a modern Markdown editor with AI-powered writing assistance, multi-document management, real-time preview, and extensive export options. Inspired by Theresa.',
   keywords: [
-    'MarkFlow',
+    'Therex',
     'Markdown Editor',
     'AI Writing',
     'Online Editor',
@@ -35,27 +35,27 @@ export const metadata: Metadata = {
     'Export',
     'Next.js',
   ],
-  authors: [{ name: 'MarkFlow Team' }],
+  authors: [{ name: 'Therex Team' }],
   generator: 'Next.js',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'MarkFlow',
+    title: 'Therex',
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
-    title: 'MarkFlow - Modern Markdown Editor with AI',
-    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview.',
+    title: 'Therex - Modern Markdown Editor with AI',
+    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview. Inspired by Theresa.',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MarkFlow - Modern Markdown Editor with AI',
-    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview.',
+    title: 'Therex - Modern Markdown Editor with AI',
+    description: 'A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview. Inspired by Theresa.',
   },
 };
 

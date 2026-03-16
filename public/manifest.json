@@ -1,7 +1,7 @@
 {
-  "name": "MarkFlow",
-  "short_name": "MarkFlow",
-  "description": "A modern Markdown editor with AI-powered writing assistance",
+  "name": "Therex",
+  "short_name": "Therex",
+  "description": "A modern Markdown editor with AI-powered writing assistance - Inspired by Theresa",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

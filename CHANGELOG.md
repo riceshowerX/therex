@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎉 First Release
 
-MarkFlow 是一款功能丰富、界面现代的 Markdown 在线编辑器，集成 AI 智能写作助手。
+Therex 是一款功能丰富、界面现代的 Markdown 在线编辑器，集成 AI 智能写作助手。
+
+> 名字来源于明日方舟中的特蕾西亚，象征着优雅与力量。
 
 ### ✨ 核心功能
 

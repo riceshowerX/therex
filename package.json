@@ -1,15 +1,16 @@
 {
-  "name": "markflow",
+  "name": "therex",
   "version": "1.0.0",
-  "description": "A modern Markdown editor with AI-powered writing assistance, multi-document management, and real-time preview",
-  "author": "MarkFlow Team",
+  "description": "A modern Markdown editor with AI-powered writing assistance - Inspired by Theresa",
+  "author": "Therex Team",
   "license": "MIT",
   "private": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/riceshowerx/markflow"
+    "url": "https://github.com/riceshowerX/therex"
   },
   "keywords": [
+    "therex",
     "markdown",
     "editor",
     "ai",
