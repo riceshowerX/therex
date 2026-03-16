@@ -1218,6 +1218,30 @@ ${content}
               <MessageSquare className="h-4 w-4 mr-2" />
               AI 对话
             </Button>
+            
+            {/* 分隔线 */}
+            <div className="border-t my-2" />
+            
+            {/* 底部工具按钮 */}
+            <div className="flex items-center gap-1">
+              {/* 文档统计 */}
+              <DocumentStats content={content} />
+              
+              {/* 快捷键面板 */}
+              <ShortcutPanel />
+              
+              {/* 设置 */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2 flex-1"
+                onClick={() => router.push('/settings')} 
+                title="设置"
+              >
+                <Settings className="h-4 w-4" />
+                设置
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1442,29 +1466,11 @@ ${content}
                 <Copy className="h-4 w-4" />
               </Button>
               
-              {/* 文档统计 */}
-              <DocumentStats content={content} />
-              
-              {/* 快捷键面板 */}
-              <ShortcutPanel />
-              
               <Button variant="ghost" size="icon" onClick={() => window.print()} title="打印">
                 <Printer className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="全屏">
                 <Maximize2 className="h-4 w-4" />
-              </Button>
-              
-              <Separator orientation="vertical" className="h-6 mx-1" />
-              
-              {/* 设置 */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => router.push('/settings')} 
-                title="设置"
-              >
-                <Settings className="h-4 w-4" />
               </Button>
             </div>
           </div>
