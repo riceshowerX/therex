@@ -114,6 +114,12 @@ import { documentManager, type Document, type Folder as FolderType, type Documen
 import { templates, templateCategories, getTemplatesByCategory, getTemplateById } from '@/lib/templates';
 import { aiConfigManager } from '@/lib/ai-config';
 import { MarkdownPreview } from '@/components/markdown-preview';
+import { DocumentStats } from '@/components/document-stats';
+import { ShortcutPanel } from '@/components/shortcut-panel';
+import { AutoSaveStatus } from '@/components/auto-save-status';
+import { ExportDialog } from '@/components/export-dialog';
+import { EditorToolbar } from '@/components/editor-toolbar';
+import { useAutoSave, useOnlineStatus } from '@/hooks/use-editor';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -1274,6 +1280,12 @@ ${content}
                 placeholder="文档标题"
               />
               
+              {/* 自动保存状态 */}
+              <AutoSaveStatus 
+                status={currentDoc ? 'saved' : 'idle'} 
+                lastSaved={currentDoc?.updatedAt ? new Date(currentDoc.updatedAt) : null}
+              />
+              
               {/* 收藏按钮 */}
               {currentDoc && (
                 <Button
@@ -1429,28 +1441,10 @@ ${content}
               <Button variant="ghost" size="icon" onClick={importFile} title="导入文件">
                 <Upload className="h-4 w-4" />
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" title="导出文件">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => exportFile('md')}>
-                    <FileDown className="h-4 w-4 mr-2" /> 导出为 Markdown
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportFile('html')}>
-                    <FileDown className="h-4 w-4 mr-2" /> 导出为 HTML
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => exportFile('txt')}>
-                    <FileDown className="h-4 w-4 mr-2" /> 导出为 TXT
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => exportFile('pdf')}>
-                    <FileDown className="h-4 w-4 mr-2" /> 导出为 PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <ExportDialog 
+                content={content} 
+                defaultTitle={title || 'document'}
+              />
 
               {/* 主题切换 */}
               <DropdownMenu>
@@ -1479,6 +1473,13 @@ ${content}
               <Button variant="ghost" size="icon" onClick={copyContent} title="复制内容">
                 <Copy className="h-4 w-4" />
               </Button>
+              
+              {/* 文档统计 */}
+              <DocumentStats content={content} />
+              
+              {/* 快捷键面板 */}
+              <ShortcutPanel />
+              
               <Button variant="ghost" size="icon" onClick={() => window.print()} title="打印">
                 <Printer className="h-4 w-4" />
               </Button>
