@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-03-16
+
+### ✨ 新功能
+
+#### 🌐 国际化支持 (i18n)
+- 支持中英文切换
+- 自动检测浏览器语言
+- 语言设置持久化到 localStorage
+- 类型安全的翻译系统
+
+#### 📱 PWA 安装功能增强
+- 设置页面新增 PWA 安装卡片
+- 显示安装状态（已安装/可安装/不支持）
+- 一键安装按钮
+- PWA 功能说明（离线可用、桌面快捷方式、推送通知）
+
+### 🐛 Bug 修复
+
+- **修复代码高亮功能** - 集成 highlight.js 替代 react-syntax-highlighter，解决代码高亮失效问题
+- **修复目录跳转功能** - 为标题添加 id 属性，优化 ScrollArea 容器内的滚动逻辑
+- **修复收藏功能重复显示** - 收藏文档仅在收藏区显示，避免重复出现在所有文档列表
+- **修复 Hydration 不匹配问题** - 设置页面的主题和语言选择器在客户端挂载后才渲染
+
+### 🔧 重构与优化
+
+- **存储适配器模式** - 抽象存储层，支持多种存储后端（本地存储、IndexedDB、Supabase）
+- **统一类型定义** - 创建 `src/types/index.ts` 作为唯一类型源
+- **重构存储层** - 创建 `src/lib/storage/manager.ts` 统一存储管理器
+- **拆分巨型组件** - 将 `markdown-editor.tsx` 的业务逻辑提取到自定义 Hooks
+- **优化字数统计** - 使用正则表达式替代 split 方法，提升中英文混合统计准确性
+- **代码清理** - 移除未使用的导入和函数
+
+### 🔒 安全性
+
+- 更新依赖包修复安全漏洞
+
 ## [1.0.0] - 2025-03-16
 
 ### 🎉 First Release
