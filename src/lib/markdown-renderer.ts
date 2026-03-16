@@ -6,18 +6,62 @@
  * - 图表（Mermaid）
  * - 数据可视化（ECharts）
  * - GitHub Flavored Markdown（GFM）
- * - 代码高亮
+ * - 代码高亮（highlight.js）
  */
 
-import { marked } from 'marked';
+import { marked, Tokens } from 'marked';
 import remarkGfm from 'remark-gfm';
 import katex from 'katex';
+import hljs from 'highlight.js';
 import 'katex/dist/katex.min.css';
 
-// 配置 marked
+// 自定义渲染器
+const renderer = {
+  code(token: Tokens.Code): string {
+    const { text, lang } = token;
+    const language = lang || '';
+    
+    // 处理 Mermaid 图表
+    if (language === 'mermaid') {
+      return `<div class="mermaid-container"><pre class="mermaid">${text}</pre></div>`;
+    }
+    
+    // 处理 ECharts 图表
+    if (language === 'echarts') {
+      const unescapedCode = text
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'");
+      
+      try {
+        JSON.parse(unescapedCode.trim());
+        const encodedCode = encodeURIComponent(unescapedCode.trim());
+        return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
+      } catch (error) {
+        return `<div class="echarts-container error">
+          <div class="text-red-500 p-4">
+            <strong>ECharts 配置错误：</strong>
+            <pre class="mt-2">${error}</pre>
+          </div>
+        </div>`;
+      }
+    }
+    
+    // 处理普通代码块（带语法高亮）
+    const validLanguage = language && hljs.getLanguage(language) ? language : 'plaintext';
+    const highlighted = hljs.highlight(text, { language: validLanguage }).value;
+    
+    return `<pre class="hljs"><code class="language-${validLanguage}">${highlighted}</code></pre>`;
+  },
+};
+
+// 配置 marked，启用代码高亮
 marked.use({
   gfm: true,
   breaks: true,
+  renderer,
 });
 
 // ECharts 实例管理器
@@ -69,75 +113,11 @@ export function cleanupEChartsInstance(container: HTMLElement): void {
 export function renderMarkdown(markdown: string): string {
   if (!markdown) return '';
 
-  // 渲染 Markdown
-  const html = marked.parse(markdown, {
+  // 渲染 Markdown（代码高亮已在自定义 renderer 中处理）
+  return marked.parse(markdown, {
     breaks: true,
     gfm: true,
   }) as string;
-
-  // 处理 Mermaid 代码块
-  let processedHtml = processMermaidBlocks(html);
-
-  // 处理 ECharts 代码块
-  processedHtml = processEChartsBlocks(processedHtml);
-
-  return processedHtml;
-}
-
-/**
- * 处理 Mermaid 图表块
- * 将 ```mermaid``` 转换为可渲染的 Mermaid 容器
- */
-function processMermaidBlocks(html: string): string {
-  // 匹配 ```mermaid 代码块
-  const mermaidRegex = /<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g;
-  
-  return html.replace(mermaidRegex, (match, code) => {
-    const trimmedCode = code.trim();
-    return `<div class="mermaid-container"><pre class="mermaid">${trimmedCode}</pre></div>`;
-  });
-}
-
-/**
- * 处理 ECharts 代码块
- * 将 ```echarts``` 转换为可渲染的 ECharts 容器
- */
-function processEChartsBlocks(html: string): string {
-  // 匹配 ```echarts 代码块
-  const echartsRegex = /<pre><code class="language-echarts">([\s\S]*?)<\/code><\/pre>/g;
-
-  return html.replace(echartsRegex, (match, code) => {
-    // 移除可能的 HTML 实体转义
-    const unescapedCode = code
-      .replace(/&quot;/g, '"')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&#39;/g, "'");
-
-    const trimmedCode = unescapedCode.trim();
-
-    // 验证 JSON 格式
-    try {
-      JSON.parse(trimmedCode);
-    } catch (error) {
-      console.error('Invalid ECharts JSON:', trimmedCode, error);
-      return `<div class="echarts-container error">
-        <div class="text-red-500 p-4">
-          <strong>ECharts 配置错误：</strong>
-          <pre class="mt-2">${error}</pre>
-          <details class="mt-2">
-            <summary>查看原始代码</summary>
-            <pre>${trimmedCode}</pre>
-          </details>
-        </div>
-      </div>`;
-    }
-
-    // 将 JSON 字符串转换为 data 属性
-    const encodedCode = encodeURIComponent(trimmedCode);
-    return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
-  });
 }
 
 /**
