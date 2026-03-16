@@ -1531,8 +1531,27 @@ ${content}
                     className="block w-full text-left text-sm hover:bg-accent px-2 py-1 rounded transition-colors truncate"
                     style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
                     onClick={() => {
-                      const element = document.querySelector(`[data-heading="${item.id}"]`);
-                      element?.scrollIntoView({ behavior: 'smooth' });
+                      // 尝试多种选择器以提高兼容性
+                      const element = document.querySelector(`[data-heading="${item.id}"]`) ||
+                                     document.getElementById(item.id);
+                      
+                      if (element) {
+                        // 查找最近的滚动容器
+                        const scrollContainer = element.closest('[data-radix-scroll-area-viewport]') ||
+                                               element.closest('.overflow-auto') ||
+                                               element.closest('.overflow-y-auto');
+                        
+                        if (scrollContainer) {
+                          // 在 ScrollArea 内滚动
+                          const containerRect = scrollContainer.getBoundingClientRect();
+                          const elementRect = element.getBoundingClientRect();
+                          const offset = elementRect.top - containerRect.top + scrollContainer.scrollTop - 20;
+                          scrollContainer.scrollTo({ top: offset, behavior: 'smooth' });
+                        } else {
+                          // 默认滚动
+                          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }
                     }}
                   >
                     {item.text}

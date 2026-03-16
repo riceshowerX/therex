@@ -7,6 +7,7 @@
  * - 数据可视化（ECharts）
  * - GitHub Flavored Markdown（GFM）
  * - 代码高亮（highlight.js）
+ * - 目录跳转
  */
 
 import { marked, Tokens } from 'marked';
@@ -15,8 +16,21 @@ import katex from 'katex';
 import hljs from 'highlight.js';
 import 'katex/dist/katex.min.css';
 
+/**
+ * 生成标题 ID（与目录生成逻辑保持一致）
+ */
+function generateHeadingId(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-');
+}
+
 // 自定义渲染器
 const renderer = {
+  heading(token: Tokens.Heading): string {
+    const { text, depth } = token;
+    const id = generateHeadingId(text);
+    return `<h${depth} id="${id}" data-heading="${id}">${text}</h${depth}>`;
+  },
+  
   code(token: Tokens.Code): string {
     const { text, lang } = token;
     const language = lang || '';
@@ -57,7 +71,7 @@ const renderer = {
   },
 };
 
-// 配置 marked，启用代码高亮
+// 配置 marked，启用代码高亮和目录跳转
 marked.use({
   gfm: true,
   breaks: true,
