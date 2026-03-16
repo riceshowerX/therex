@@ -39,10 +39,11 @@ Therex 是一款功能丰富、界面现代的 Markdown 在线编辑器，基于
 ### 📁 文档管理
 
 - **多文档支持** - 侧边栏文档列表，快速切换
-- **数据库存储** - 使用 Supabase 存储，数据持久化
+- **灵活存储** - 支持 localStorage、IndexedDB、Supabase、PostgreSQL、MongoDB 多种存储后端
 - **文档收藏** - 收藏重要文档，快速访问
 - **搜索过滤** - 按标题或内容搜索文档
 - **统计信息** - 字数、词数、行数、阅读时间、中英文比例
+- **数据迁移** - 在不同存储后端之间无缝迁移数据
 
 ### 📂 文件夹管理
 
@@ -169,7 +170,7 @@ Therex 是一款功能丰富、界面现代的 Markdown 在线编辑器，基于
 
 - Node.js 18.0 或更高版本
 - pnpm 8.0 或更高版本（推荐）
-- Supabase 账户（用于数据持久化）
+- Supabase 账户（可选，用于云同步）
 
 ### 安装步骤
 
@@ -195,14 +196,16 @@ cp .env.example .env.local
 编辑 `.env.local` 文件，填入必要的配置：
 
 ```env
-# Supabase 配置（必需）
+# Supabase 配置（可选，用于云同步）
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # AI 配置（可选）
 AI_API_KEY=your_ai_api_key
-AI_DEFAULT_MODEL=doubao
+AI_DEFAULT_MODEL=doubou
 ```
+
+> 💡 **提示**：如果不配置 Supabase，应用默认使用浏览器本地存储（localStorage）。你可以在设置页面随时切换存储方式。
 
 4. **初始化数据库**
 
@@ -270,13 +273,27 @@ pnpm start
 
 | 变量名 | 必需 | 说明 |
 |--------|------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase 项目 URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase 匿名密钥 |
+| `NEXT_PUBLIC_SUPABASE_URL` | ⭕ | Supabase 项目 URL（用于云同步） |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ⭕ | Supabase 匿名密钥 |
 | `AI_API_KEY` | ⭕ | AI 服务 API 密钥 |
-| `AI_DEFAULT_MODEL` | ⭕ | 默认 AI 模型（默认：doubao） |
+| `AI_DEFAULT_MODEL` | ⭕ | 默认 AI 模型（默认：doubou） |
 | `AI_API_ENDPOINT` | ⭕ | AI API 端点 |
 | `NEXT_PUBLIC_APP_URL` | ⭕ | 应用 URL（用于生成链接） |
 | `NEXT_PUBLIC_APP_NAME` | ⭕ | 应用名称（默认：Therex） |
+
+### 存储选项
+
+Therex 支持多种存储后端，满足不同使用场景：
+
+| 存储类型 | 适用场景 | 需要配置 | 跨设备同步 |
+|---------|---------|---------|-----------|
+| localStorage | 快速开始 | 否 | 否 |
+| IndexedDB | 大量本地文档 | 否 | 否 |
+| Supabase | 跨设备同步 | 是 | 是 |
+| PostgreSQL | 自建服务 | 是 | 是 |
+| MongoDB | 文档存储 | 是 | 是 |
+
+> 💡 查看 [存储选项详细文档](docs/STORAGE.md) 了解配置方法。
 
 ### Supabase 配置
 
@@ -334,9 +351,17 @@ therex/
 │   │   ├── document-stats.tsx  # 文档统计
 │   │   ├── shortcut-panel.tsx  # 快捷键面板
 │   │   ├── export-dialog.tsx   # 导出对话框
+│   │   ├── storage-settings.tsx# 存储配置组件
 │   │   └── ...
 │   ├── lib/                    # 工具库
-│   │   ├── document-manager.ts # 文档管理
+│   │   ├── storage/            # 存储抽象层
+│   │   │   ├── types.ts        # 存储类型定义
+│   │   │   ├── adapters/       # 存储适配器
+│   │   │   │   ├── local-storage.ts      # localStorage 适配器
+│   │   │   │   ├── indexeddb-storage.ts  # IndexedDB 适配器
+│   │   │   │   └── supabase-storage.ts   # Supabase 适配器
+│   │   │   └── index.ts        # 存储管理器
+│   │   ├── document-manager.ts # 文档管理（旧）
 │   │   ├── markdown-renderer.ts# Markdown 渲染
 │   │   ├── export-utils.ts     # 导出工具
 │   │   ├── ai-config.ts        # AI 配置
@@ -345,7 +370,8 @@ therex/
 │   │   └── use-editor.ts       # 编辑器 Hooks
 │   └── styles/                 # 样式文件
 ├── docs/                       # 文档
-│   └── MATH_AND_CHARTS.md      # 数学公式与图表指南
+│   ├── MATH_AND_CHARTS.md      # 数学公式与图表指南
+│   └── STORAGE.md              # 存储选项指南
 ├── public/                     # 静态资源
 ├── .env.example                # 环境变量示例
 ├── drizzle.config.ts           # Drizzle ORM 配置

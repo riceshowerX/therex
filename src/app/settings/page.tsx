@@ -48,6 +48,7 @@ import {
   type AIProvider,
   providerPresets,
 } from '@/lib/ai-config';
+import { StorageSettings } from '@/components/storage-settings';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -426,6 +427,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* 存储设置 */}
+          <StorageSettings />
 
           {/* 编辑器设置 */}
           <Card>
