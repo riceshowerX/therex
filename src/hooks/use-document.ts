@@ -10,7 +10,6 @@ import type { Document, CreateDocumentParams, UpdateDocumentParams } from '@/typ
 
 interface UseDocumentOptions {
   autoInit?: boolean;
-  autoSaveInterval?: number;
 }
 
 interface UseDocumentReturn {
@@ -36,14 +35,13 @@ interface UseDocumentReturn {
 }
 
 export function useDocument(options: UseDocumentOptions = {}): UseDocumentReturn {
-  const { autoInit = true, autoSaveInterval = 500 } = options;
+  const { autoInit = true } = options;
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initializedRef = useRef(false);
 
   // 初始化
@@ -75,25 +73,6 @@ export function useDocument(options: UseDocumentOptions = {}): UseDocumentReturn
 
     init();
   }, [autoInit]);
-
-  // 自动保存当前文档
-  const saveCurrentDocument = useCallback((updates: UpdateDocumentParams) => {
-    if (!currentDoc) return;
-
-    // 防抖保存
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      const manager = getStorageManager();
-      const updated = manager.updateDocument(currentDoc.id, updates);
-      if (updated) {
-        setCurrentDoc(updated);
-        setDocuments(manager.getAllDocuments());
-      }
-    }, autoSaveInterval);
-  }, [currentDoc, autoSaveInterval]);
 
   // 创建文档
   const createDocument = useCallback((params?: CreateDocumentParams): Document => {
@@ -193,15 +172,6 @@ export function useDocument(options: UseDocumentOptions = {}): UseDocumentReturn
   const refreshDocuments = useCallback(() => {
     const manager = getStorageManager();
     setDocuments(manager.getAllDocuments());
-  }, []);
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
   }, []);
 
   return {

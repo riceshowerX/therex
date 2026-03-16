@@ -157,28 +157,40 @@ export function useEditorState(): UseEditorStateReturn {
   }, []);
 
   const undo = useCallback((): string | undefined => {
+    let result: string | undefined;
+    
     setUndoStack(prev => {
-      if (prev.length === 0) return prev;
+      if (prev.length === 0) {
+        result = undefined;
+        return prev;
+      }
 
       const last = prev[prev.length - 1];
+      result = last;
       setRedoStack(r => [...r, last]);
       return prev.slice(0, -1);
     });
 
-    return undoStack[undoStack.length - 1];
-  }, [undoStack]);
+    return result;
+  }, []);
 
   const redo = useCallback((): string | undefined => {
+    let result: string | undefined;
+    
     setRedoStack(prev => {
-      if (prev.length === 0) return prev;
+      if (prev.length === 0) {
+        result = undefined;
+        return prev;
+      }
 
       const last = prev[prev.length - 1];
+      result = last;
       setUndoStack(u => [...u, last]);
       return prev.slice(0, -1);
     });
 
-    return redoStack[redoStack.length - 1];
-  }, [redoStack]);
+    return result;
+  }, []);
 
   const clearHistory = useCallback(() => {
     setUndoStack([]);
