@@ -133,20 +133,6 @@ interface HistoryState {
   timestamp: number;
 }
 
-// 快捷键定义
-const SHORTCUTS = [
-  { key: 'Ctrl/Cmd + S', description: '保存文档' },
-  { key: 'Ctrl/Cmd + Z', description: '撤销' },
-  { key: 'Ctrl/Cmd + Shift + Z', description: '重做' },
-  { key: 'Ctrl/Cmd + F', description: '查找替换' },
-  { key: 'Ctrl/Cmd + B', description: '加粗' },
-  { key: 'Ctrl/Cmd + I', description: '斜体' },
-  { key: 'Ctrl/Cmd + K', description: '插入链接' },
-  { key: 'Ctrl/Cmd + Shift + C', description: '插入代码块' },
-  { key: 'Ctrl/Cmd + /', description: '插入注释' },
-  { key: 'Ctrl/Cmd + Shift + S', description: '保存版本' },
-];
-
 export default function MarkdownEditor() {
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -173,9 +159,6 @@ export default function MarkdownEditor() {
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  
-  // 快捷键面板
-  const [showShortcuts, setShowShortcuts] = useState(false);
   
   // AI 配置提示
   const [showAIConfigAlert, setShowAIConfigAlert] = useState(false);
@@ -891,7 +874,7 @@ ${content}
           }
         } else if (e.key === 'h') {
           e.preventDefault();
-          setShowShortcuts(prev => !prev);
+          // 历史版本功能
         } else if (e.key === 'k') {
           e.preventDefault();
           // 如果当前是关闭状态，需要检查配置后再打开
@@ -900,9 +883,6 @@ ${content}
           } else {
             setShowAIChat(false);
           }
-        } else if (e.key === '/') {
-          e.preventDefault();
-          setShowShortcuts(true);
         }
       }
     };
@@ -1238,17 +1218,6 @@ ${content}
             >
               <MessageSquare className="h-4 w-4 mr-2" />
               AI 对话
-            </Button>
-            
-            {/* 快捷键按钮 */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => setShowShortcuts(true)}
-            >
-              <Keyboard className="h-4 w-4 mr-2" />
-              快捷键
             </Button>
           </div>
         </div>
@@ -1950,41 +1919,6 @@ ${content}
             </Button>
             <Button onClick={handleCreateFolder}>
               创建
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 快捷键面板 */}
-      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Keyboard className="h-5 w-5" />
-              快捷键
-            </DialogTitle>
-            <DialogDescription>
-              使用快捷键提高编辑效率
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-2">
-            {SHORTCUTS.map((shortcut, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-              >
-                <span className="text-sm">{shortcut.description}</span>
-                <kbd className="px-2 py-1 text-xs font-mono bg-background rounded border">
-                  {shortcut.key}
-                </kbd>
-              </div>
-            ))}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowShortcuts(false)}>
-              关闭
             </Button>
           </DialogFooter>
         </DialogContent>
