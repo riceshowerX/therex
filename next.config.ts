@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // 启用 Turbopack 配置以兼容 Next.js 16
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (isServer) {
       // 标记某些包为外部依赖，避免服务端打包问题
