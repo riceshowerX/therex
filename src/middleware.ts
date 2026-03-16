@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // 安全头配置
-const securityHeaders = [
+const getSecurityHeaders = (isDev: boolean) => [
   // 防止点击劫持
   {
     key: 'X-Frame-Options',
@@ -28,7 +28,7 @@ const securityHeaders = [
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=()',
   },
-  // 内容安全策略
+  // 内容安全策略 - 开发环境放宽限制
   {
     key: 'Content-Security-Policy',
     value: [
@@ -37,32 +37,34 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: http:",
-      "connect-src 'self' https: wss:",
+      isDev ? "connect-src 'self' https: wss: http:" : "connect-src 'self' https: wss:",
       "worker-src 'self' blob:",
-      "frame-ancestors 'self'",
+      // 开发环境允许嵌入 iframe（用于预览）
+      isDev ? "frame-ancestors 'self' *" : "frame-ancestors 'self'",
       "form-action 'self'",
       "base-uri 'self'",
       "object-src 'none'",
     ].join('; '),
   },
-  // 严格传输安全 (HSTS)
-  {
+  // 仅在生产环境启用 HSTS
+  ...(isDev ? [] : [{
     key: 'Strict-Transport-Security',
     value: 'max-age=31536000; includeSubDomains; preload',
-  },
+  }]),
 ];
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const isDev = process.env.NODE_ENV === 'development';
 
   // 添加安全头
-  securityHeaders.forEach(({ key, value }) => {
+  const headers = getSecurityHeaders(isDev);
+  headers.forEach(({ key, value }) => {
     response.headers.set(key, value);
   });
 
-  // API 请求速率限制检查 (简单实现)
+  // API 请求缓存控制
   if (request.nextUrl.pathname.startsWith('/api/')) {
-    // 添加 API 缓存控制
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     response.headers.set('Pragma', 'no-cache');
   }
