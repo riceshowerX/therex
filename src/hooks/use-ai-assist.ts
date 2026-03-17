@@ -1,6 +1,6 @@
 /**
- * AI 对话 Hook
- * 处理 AI 对话功能，包括流式响应
+ * AI 写作助手 Hook
+ * 处理 AI 写作辅助功能（续写、润色、翻译等）
  */
 
 'use client';
@@ -10,70 +10,75 @@ import { toast } from 'sonner';
 import { aiConfigManager } from '@/lib/ai-config';
 import type { AIConfig } from '@/types';
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+export type AIAction = 
+  | 'continue'    // 续写
+  | 'polish'      // 润色
+  | 'translate'   // 翻译
+  | 'summarize'   // 摘要
+  | 'outline'     // 大纲
+  | 'title'       // 标题
+  | 'expand'      // 扩写
+  | 'rewrite';    // 重写
+
+export interface UseAIAssistOptions {
+  onApply?: (result: string, action: AIAction) => void;
 }
 
-export interface UseAIChatOptions {
-  maxHistoryLength?: number;
-}
-
-export interface UseAIChatReturn {
+export interface UseAIAssistReturn {
   // 状态
-  messages: ChatMessage[];
-  input: string;
+  result: string;
   isLoading: boolean;
+  currentAction: AIAction | null;
   isOpen: boolean;
   needsConfig: boolean;
+  configAction: string;
   
   // 操作
-  sendMessage: () => Promise<void>;
-  setInput: (input: string) => void;
+  execute: (action: AIAction, selection?: string) => Promise<void>;
+  apply: () => void;
+  reject: () => void;
   open: () => void;
   close: () => void;
-  toggle: () => void;
-  clearHistory: () => void;
-  applyLastMessage: () => string | null;
   
-  // 配置检查
-  checkConfig: () => boolean;
+  // 配置
+  checkConfig: (action?: string) => boolean;
 }
 
-export function useAIChat(
+export function useAIAssist(
   content: string,
-  options: UseAIChatOptions = {}
-): UseAIChatReturn {
-  const { maxHistoryLength = 20 } = options;
+  options: UseAIAssistOptions = {}
+): UseAIAssistReturn {
+  const { onApply } = options;
   
   // 状态
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const [result, setResult] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentAction, setCurrentAction] = useState<AIAction | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [needsConfig, setNeedsConfig] = useState(false);
+  const [configAction, setConfigAction] = useState('');
   
   // Refs
   const abortControllerRef = useRef<AbortController | null>(null);
   
   // 检查配置
-  const checkConfig = useCallback((): boolean => {
+  const checkConfig = useCallback((action?: string): boolean => {
     const config = aiConfigManager.getConfig();
     if (!config.apiKey) {
       setNeedsConfig(true);
+      setConfigAction(action || '');
       return false;
     }
     setNeedsConfig(false);
     return true;
   }, []);
   
-  // 打开对话
+  // 打开面板
   const open = useCallback(() => {
-    if (!checkConfig()) return;
     setIsOpen(true);
-  }, [checkConfig]);
+  }, []);
   
-  // 关闭对话
+  // 关闭面板
   const close = useCallback(() => {
     setIsOpen(false);
     // 取消正在进行的请求
@@ -82,24 +87,14 @@ export function useAIChat(
     }
   }, []);
   
-  // 切换对话
-  const toggle = useCallback(() => {
-    if (isOpen) {
-      close();
-    } else {
-      open();
-    }
-  }, [isOpen, open, close]);
-  
-  // 发送消息
-  const sendMessage = useCallback(async () => {
-    if (!input.trim() || isLoading) return;
-    if (!checkConfig()) return;
+  // 执行 AI 操作
+  const execute = useCallback(async (action: AIAction, selection?: string) => {
+    if (!checkConfig(action)) return;
     
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setResult('');
+    setCurrentAction(action);
     setIsLoading(true);
+    setIsOpen(true);
     
     const config = aiConfigManager.getConfig();
     abortControllerRef.current = new AbortController();
@@ -109,10 +104,9 @@ export function useAIChat(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'chat',
+          action,
           content,
-          chatHistory: messages,
-          userMessage,
+          selection: selection || '',
           config: config.apiKey ? {
             provider: config.provider,
             apiKey: config.apiKey,
@@ -123,11 +117,12 @@ export function useAIChat(
         signal: abortControllerRef.current.signal,
       });
       
-      if (!response.ok) throw new Error('AI 服务请求失败');
+      if (!response.ok) {
+        throw new Error('AI 服务请求失败');
+      }
       
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
       
       if (reader) {
         while (true) {
@@ -145,20 +140,10 @@ export function useAIChat(
               try {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
-                  assistantMessage += parsed.content;
-                  setMessages(prev => {
-                    const newMessages = [...prev];
-                    if (newMessages[newMessages.length - 1]?.role === 'assistant') {
-                      newMessages[newMessages.length - 1].content = assistantMessage;
-                    } else {
-                      newMessages.push({ role: 'assistant', content: assistantMessage });
-                    }
-                    // 限制历史长度
-                    if (newMessages.length > maxHistoryLength) {
-                      return newMessages.slice(-maxHistoryLength);
-                    }
-                    return newMessages;
-                  });
+                  setResult(prev => prev + parsed.content);
+                }
+                if (parsed.error) {
+                  toast.error(parsed.error);
                 }
               } catch {
                 // 忽略解析错误
@@ -169,26 +154,33 @@ export function useAIChat(
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // 请求被取消，不做处理
         return;
       }
-      console.error('Chat error:', error);
-      setMessages(prev => [...prev, { role: 'assistant', content: '抱歉，AI 服务暂时不可用。' }]);
+      console.error('AI assist error:', error);
+      toast.error('AI 服务暂时不可用');
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, content, messages, maxHistoryLength, checkConfig]);
+  }, [content, checkConfig]);
   
-  // 清除历史
-  const clearHistory = useCallback(() => {
-    setMessages([]);
-  }, []);
+  // 应用结果
+  const apply = useCallback(() => {
+    if (!result || !currentAction) return;
+    
+    if (onApply) {
+      onApply(result, currentAction);
+    }
+    
+    close();
+    setResult('');
+    toast.success('已应用 AI 生成内容');
+  }, [result, currentAction, onApply, close]);
   
-  // 应用最后一条消息
-  const applyLastMessage = useCallback((): string | null => {
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
-    return lastAssistantMessage?.content || null;
-  }, [messages]);
+  // 拒绝结果
+  const reject = useCallback(() => {
+    close();
+    setResult('');
+  }, [close]);
   
   // 清理
   useEffect(() => {
@@ -200,18 +192,17 @@ export function useAIChat(
   }, []);
   
   return {
-    messages,
-    input,
+    result,
     isLoading,
+    currentAction,
     isOpen,
     needsConfig,
-    sendMessage,
-    setInput,
+    configAction,
+    execute,
+    apply,
+    reject,
     open,
     close,
-    toggle,
-    clearHistory,
-    applyLastMessage,
     checkConfig,
   };
 }

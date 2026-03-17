@@ -15,3 +15,9 @@ export type { AIPanelProps, ChatMessage } from './AIPanel';
 
 export { VersionHistory } from './VersionHistory';
 export type { VersionHistoryProps } from './VersionHistory';
+
+export { SearchReplace } from './SearchReplace';
+export type { SearchReplaceProps } from './SearchReplace';
+
+export { TableOfContents, TocSidebar } from './TableOfContents';
+export type { TableOfContentsProps, TocSidebarProps, TocItem } from './TableOfContents';
