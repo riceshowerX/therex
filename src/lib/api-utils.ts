@@ -16,16 +16,34 @@ class RateLimiter {
   private requests: Map<string, number[]> = new Map();
   private windowMs: number;
   private maxRequests: number;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private isDestroyed: boolean = false;
 
   constructor(windowMs: number = 60000, maxRequests: number = 100) {
     this.windowMs = windowMs;
     this.maxRequests = maxRequests;
 
-    // 定期清理过期记录
-    setInterval(() => this.cleanup(), windowMs);
+    // 定期清理过期记录（仅在非测试环境）
+    if (process.env.NODE_ENV !== 'test') {
+      this.cleanupTimer = setInterval(() => this.cleanup(), windowMs);
+    }
+  }
+
+  /**
+   * 销毁 RateLimiter，清理资源
+   */
+  destroy(): void {
+    this.isDestroyed = true;
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.requests.clear();
   }
 
   private cleanup() {
+    if (this.isDestroyed) return;
+    
     const now = Date.now();
     for (const [key, timestamps] of this.requests.entries()) {
       const validTimestamps = timestamps.filter(t => now - t < this.windowMs);
@@ -38,6 +56,10 @@ class RateLimiter {
   }
 
   check(identifier: string): { allowed: boolean; remaining: number; resetTime: number } {
+    if (this.isDestroyed) {
+      return { allowed: true, remaining: this.maxRequests, resetTime: Date.now() + this.windowMs };
+    }
+
     const now = Date.now();
     const timestamps = this.requests.get(identifier) || [];
     const validTimestamps = timestamps.filter(t => now - t < this.windowMs);
@@ -55,8 +77,8 @@ class RateLimiter {
     this.requests.set(identifier, validTimestamps);
 
     return {
-      allowed: true,
-      remaining: this.maxRequests - validTimestamps.length,
+      allowed: this.maxRequests - validTimestamps.length > 0,
+      remaining: Math.max(0, this.maxRequests - validTimestamps.length),
       resetTime: now + this.windowMs,
     };
   }

@@ -18,6 +18,12 @@ import type {
   ExportData,
 } from '@/types';
 import { createLogger } from '@/lib/logger';
+import {
+  STORAGE_PREFIX,
+  STORAGE_CONFIG_KEY,
+  MAX_VERSION_HISTORY,
+  DATA_FORMAT_VERSION,
+} from '@/lib/constants';
 
 const logger = createLogger('storage');
 
@@ -45,13 +51,8 @@ interface SupabaseConfig extends StorageConfig {
 
 type AnyStorageConfig = LocalStorageConfig | IndexedDBConfig | SupabaseConfig;
 
-// ==================== 常量 ====================
-
-const STORAGE_CONFIG_KEY = 'therex-storage-config';
-const DEFAULT_PREFIX = 'therex';
-const MAX_VERSIONS = 20;
-const APP_VERSION = '1.0.0';
-
+// 注：常量已移至 src/lib/constants.ts
+const DEFAULT_PREFIX = STORAGE_PREFIX;
 // ==================== 工具函数 ====================
 
 function generateId(prefix: string = 'id'): string {
@@ -407,7 +408,7 @@ class StorageManager {
     versions.unshift(version);
 
     // 限制版本数量
-    if (versions.length > MAX_VERSIONS) {
+    if (versions.length > MAX_VERSION_HISTORY) {
       versions.pop();
     }
 
@@ -499,7 +500,7 @@ class StorageManager {
       folders: Array.from(this.folders.values()),
       versions: versionsMap,
       exportedAt: now(),
-      version: APP_VERSION,
+      version: DATA_FORMAT_VERSION,
     };
   }
 
@@ -737,5 +738,5 @@ export const documentManager = {
   initialize: () => getStorageManager().initialize(),
 };
 
-// 导出类型
-export type { Document, Folder, DocumentVersion, CreateDocumentParams, UpdateDocumentParams };
+// 导出类型 - 从统一类型定义重新导出，保持向后兼容
+export type { Document, Folder, DocumentVersion, CreateDocumentParams, UpdateDocumentParams } from '@/types';
