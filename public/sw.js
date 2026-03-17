@@ -1,24 +1,39 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = 'therex-v1.0.0';
-const STATIC_CACHE_NAME = 'therex-static-v1.0.0';
+const CACHE_NAME = 'therex-v1.0.1';
+const STATIC_CACHE_NAME = 'therex-static-v1.0.1';
 
-// 静态资源列表
+// 静态资源列表 - 只包含实际存在的文件
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/icons/icon.svg',
+  '/icons/logo.png',
 ];
 
 // 安装事件
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
+    caches.open(STATIC_CACHE_NAME)
+      .then((cache) => {
+        // 逐个添加资源，忽略失败的请求
+        return Promise.allSettled(
+          STATIC_ASSETS.map((url) =>
+            fetch(url)
+              .then((response) => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+              })
+              .catch(() => {
+                // 忽略失败，继续安装
+                console.warn('Failed to cache:', url);
+              })
+          )
+        );
+      })
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 // 激活事件
@@ -30,9 +45,8 @@ self.addEventListener('activate', (event) => {
           .filter((name) => name !== CACHE_NAME && name !== STATIC_CACHE_NAME)
           .map((name) => caches.delete(name))
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // 请求拦截
@@ -42,6 +56,11 @@ self.addEventListener('fetch', (event) => {
 
   // 只缓存同源请求
   if (url.origin !== location.origin) {
+    return;
+  }
+
+  // 非GET请求直接使用网络
+  if (request.method !== 'GET') {
     return;
   }
 
@@ -76,7 +95,7 @@ async function cacheFirst(request) {
     }
     return response;
   } catch {
-    return new Response('Offline', { status: 503 });
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }
 }
 
@@ -94,7 +113,7 @@ async function networkFirst(request) {
     if (cached) {
       return cached;
     }
-    return new Response('Offline', { status: 503 });
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }
 }
 
