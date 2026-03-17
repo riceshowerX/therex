@@ -9,12 +9,23 @@
  * - MongoDB：文档数据库
  */
 
-// ==================== 类型定义 ====================
+// ==================== 从统一类型导入 ====================
+import type {
+  StorageProvider,
+  Document,
+  Folder,
+  DocumentVersion,
+} from '@/types';
 
-/**
- * 存储提供商标识
- */
-export type StorageProvider = 'local' | 'indexeddb' | 'supabase' | 'postgresql' | 'mongodb';
+// 重新导出统一类型，保持向后兼容
+export type {
+  StorageProvider,
+  Document,
+  Folder,
+  DocumentVersion,
+};
+
+// ==================== 存储配置类型 ====================
 
 /**
  * 存储配置基础接口

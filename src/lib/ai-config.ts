@@ -1,22 +1,22 @@
 /**
  * AI 配置管理模块
  * 支持多种 AI 提供商的自定义配置
+ *
+ * ⚠️ 安全警告：
+ * API Key 当前存储在 localStorage 中，存在 XSS 攻击泄露风险。
+ * 生产环境建议：
+ * 1. 使用后端 API 代理 AI 请求
+ * 2. 使用 HttpOnly Cookie 存储敏感信息
+ * 3. 实施严格的 CSP 策略
  */
 
-// AI 提供商类型
-export type AIProvider = 'doubao' | 'deepseek' | 'openai' | 'kimi' | 'custom';
+import type { AIProvider, AIConfig } from '@/types';
+import { createLogger } from '@/lib/logger';
 
-// AI 配置接口
-export interface AIConfig {
-  provider: AIProvider;
-  apiKey: string;
-  apiEndpoint: string;
-  model: string;
-  temperature: number;
-  maxTokens: number;
-  enableSystemPrompt: boolean;
-  systemPrompt: string;
-}
+const logger = createLogger('ai-config');
+
+// 重新导出类型，保持向后兼容
+export type { AIProvider, AIConfig };
 
 // 提供商预设配置
 export const providerPresets: Record<AIProvider, {
@@ -191,7 +191,7 @@ export class AIConfigManager {
         return { ...defaultAIConfig, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.error('Failed to load AI config:', error);
+      logger.error('Failed to load AI config', error instanceof Error ? error : undefined);
     }
 
     return defaultAIConfig;
@@ -205,7 +205,7 @@ export class AIConfigManager {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config));
       } catch (error) {
-        console.error('Failed to save AI config:', error);
+        logger.error('Failed to save AI config', error instanceof Error ? error : undefined);
       }
     }
   }
@@ -223,7 +223,7 @@ export class AIConfigManager {
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch (error) {
-        console.error('Failed to reset AI config:', error);
+        logger.error('Failed to reset AI config', error instanceof Error ? error : undefined);
       }
     }
   }

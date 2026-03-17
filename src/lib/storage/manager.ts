@@ -17,6 +17,9 @@ import type {
   StorageStatus,
   ExportData,
 } from '@/types';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('storage');
 
 // ==================== 存储配置 ====================
 
@@ -52,7 +55,7 @@ const APP_VERSION = '1.0.0';
 // ==================== 工具函数 ====================
 
 function generateId(prefix: string = 'id'): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 function calculateWordCount(content: string): number {
@@ -103,7 +106,7 @@ class StorageManager {
       this.status = 'ready';
       return true;
     } catch (error) {
-      console.error('存储初始化失败:', error);
+      logger.error('存储初始化失败', error instanceof Error ? error : undefined);
       this.status = 'error';
       return false;
     }
@@ -568,7 +571,7 @@ class StorageManager {
         this.config = JSON.parse(saved) as AnyStorageConfig;
       }
     } catch (error) {
-      console.error('加载存储配置失败:', error);
+      logger.error('加载存储配置失败', error instanceof Error ? error : undefined);
     }
   }
 
@@ -578,7 +581,7 @@ class StorageManager {
     try {
       localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(this.config));
     } catch (error) {
-      console.error('保存存储配置失败:', error);
+      logger.error('保存存储配置失败', error instanceof Error ? error : undefined);
     }
   }
 
@@ -623,7 +626,7 @@ class StorageManager {
         this.currentDocumentId = currentId;
       }
     } catch (error) {
-      console.error('加载数据失败:', error);
+      logger.error('加载数据失败', error instanceof Error ? error : undefined);
     }
   }
 
@@ -636,11 +639,11 @@ class StorageManager {
       // 使用防抖保存，避免频繁写入
       this.debouncedSave(prefix);
     } catch (error) {
-      console.error('保存数据失败:', error);
+      logger.error('保存数据失败', error instanceof Error ? error : undefined);
     }
   }
 
-  private saveTimeout: NodeJS.Timeout | null = null;
+  private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private debouncedSave(prefix: string): void {
     if (this.saveTimeout) {
@@ -669,7 +672,7 @@ class StorageManager {
 
       this.saveConfig();
     } catch (error) {
-      console.error('保存数据失败:', error);
+      logger.error('保存数据失败', error instanceof Error ? error : undefined);
     }
   }
 }

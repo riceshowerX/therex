@@ -6,8 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
-import { aiConfigurations } from '@/storage/database/schema';
-import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 
 // 验证 schema

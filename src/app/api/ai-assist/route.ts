@@ -307,52 +307,52 @@ function getPrompts(
 
   switch (action) {
     case 'continue':
-      systemPrompt = defaultSystemPrompts.continue;
+      systemPrompt = defaultSystemPrompts['continue'] || '';
       userPrompt = `请续写以下内容：\n\n${content}`;
       break;
 
     case 'polish':
-      systemPrompt = defaultSystemPrompts.polish;
+      systemPrompt = defaultSystemPrompts['polish'] || '';
       userPrompt = `请润色以下文本：\n\n${textToProcess}`;
       break;
 
     case 'expand':
-      systemPrompt = defaultSystemPrompts.expand;
+      systemPrompt = defaultSystemPrompts['expand'] || '';
       userPrompt = `请扩展以下内容：\n\n${textToProcess}`;
       break;
 
     case 'summarize':
-      systemPrompt = defaultSystemPrompts.summarize;
+      systemPrompt = defaultSystemPrompts['summarize'] || '';
       userPrompt = `请总结以下文档的主要内容：\n\n${content}`;
       break;
 
     case 'translate':
-      systemPrompt = defaultSystemPrompts.translate;
+      systemPrompt = defaultSystemPrompts['translate'] || '';
       userPrompt = `请翻译以下内容：\n\n${textToProcess}`;
       break;
 
     case 'fix':
-      systemPrompt = defaultSystemPrompts.fix;
+      systemPrompt = defaultSystemPrompts['fix'] || '';
       userPrompt = `请修正以下文本中的错误：\n\n${textToProcess}`;
       break;
 
     case 'outline':
-      systemPrompt = defaultSystemPrompts.outline;
+      systemPrompt = defaultSystemPrompts['outline'] || '';
       userPrompt = `请为以下主题生成写作大纲：\n\n${content}`;
       break;
 
     case 'title':
-      systemPrompt = defaultSystemPrompts.title;
+      systemPrompt = defaultSystemPrompts['title'] || '';
       userPrompt = `请为以下内容生成标题建议：\n\n${content}`;
       break;
 
     case 'explain':
-      systemPrompt = defaultSystemPrompts.explain;
+      systemPrompt = defaultSystemPrompts['explain'] || '';
       userPrompt = `请解释以下内容：\n\n${textToProcess}`;
       break;
 
     case 'rewrite':
-      systemPrompt = defaultSystemPrompts.rewrite;
+      systemPrompt = defaultSystemPrompts['rewrite'] || '';
       userPrompt = `请改写以下内容：\n\n${textToProcess}`;
       break;
 

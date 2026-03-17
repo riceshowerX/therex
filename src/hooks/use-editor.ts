@@ -363,14 +363,15 @@ export function useThrottledValue<T>(value: T, interval: number = 300): T {
     if (now - lastUpdateRef.current >= interval) {
       setThrottledValue(value);
       lastUpdateRef.current = now;
-    } else {
-      const timer = setTimeout(() => {
-        setThrottledValue(value);
-        lastUpdateRef.current = Date.now();
-      }, interval - (now - lastUpdateRef.current));
-
-      return () => clearTimeout(timer);
+      return;
     }
+
+    const timer = setTimeout(() => {
+      setThrottledValue(value);
+      lastUpdateRef.current = Date.now();
+    }, interval - (now - lastUpdateRef.current));
+
+    return () => clearTimeout(timer);
   }, [value, interval]);
 
   return throttledValue;

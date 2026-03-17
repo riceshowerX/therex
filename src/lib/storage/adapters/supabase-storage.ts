@@ -25,6 +25,9 @@ import type {
   StorageDocumentVersion,
   SupabaseStorageConfig,
 } from '../types';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('supabase-storage');
 
 export class SupabaseStorageAdapter implements IStorageAdapter {
   readonly provider: StorageProvider = 'supabase';
@@ -44,7 +47,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     try {
       // 验证配置
       if (!this.config.url || !this.config.anonKey) {
-        console.error('Supabase 配置不完整');
+        logger.error('Supabase 配置不完整');
         return false;
       }
 
@@ -68,14 +71,14 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       // 测试连接
       const { error } = await this.client.from('documents').select('id').limit(1);
       if (error && error.code !== 'PGRST116') {
-        console.error('Supabase 连接测试失败:', error);
+        logger.error('Supabase 连接测试失败', error instanceof Error ? error : undefined);
         return false;
       }
 
       this.initialized = true;
       return true;
     } catch (error) {
-      console.error('Supabase 初始化失败:', error);
+      logger.error('Supabase 初始化失败', error instanceof Error ? error : undefined);
       return false;
     }
   }
@@ -101,7 +104,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
 
   private generateId(): string {
     return crypto.randomUUID ? crypto.randomUUID() : 
-      `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private calculateWordCount(content: string): number {
