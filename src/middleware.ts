@@ -37,7 +37,7 @@ const getSecurityHeaders = (isDev: boolean) => [
       "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
       "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
-      "font-src 'self' https://fonts.gstatic.com https://fonts.bytedance.com https://lf-cdn.coze.cn https://cdn.jsdelivr.net data:",
+      "font-src 'self' https://fonts.gstatic.com https://fonts.bytedance.com https://lf-cdn.coze.cn https://cdn.jsdelivr.net https://*.bytetos.com data:",
       "img-src 'self' data: blob: https: http:",
       isDev ? "connect-src 'self' https: wss: http:" : "connect-src 'self' https: wss:",
       "worker-src 'self' blob:",
