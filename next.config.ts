@@ -81,9 +81,34 @@ const nextConfig: NextConfig = {
     return config;
   },
 
-  // 静态资源缓存头
+  // 静态资源缓存头和安全策略
   async headers() {
     return [
+      // CSP 安全策略
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
+              "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+              "img-src 'self' data: blob: https: http:",
+              "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+              "connect-src 'self' https: wss:",
+              "worker-src 'self' blob:",
+              "frame-src 'self' https:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'self'",
+            ].join('; '),
+          },
+        ],
+      },
+      // 静态资源缓存
       {
         source: '/:all*(svg|jpg|png|webp|avif|ico)',
         headers: [
