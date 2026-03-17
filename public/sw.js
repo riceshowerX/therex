@@ -12,17 +12,17 @@ const STATIC_ASSETS = [
 ];
 
 // 安装事件
-self.addEventListener('install', (event: ExtendableEvent) => {
+self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  (self as unknown as ServiceWorkerGlobalScope).skipWaiting();
+  self.skipWaiting();
 });
 
 // 激活事件
-self.addEventListener('activate', (event: ExtendableEvent) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -32,11 +32,11 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
       );
     })
   );
-  (self as unknown as ServiceWorkerGlobalScope).clients.claim();
+  self.clients.claim();
 });
 
 // 请求拦截
-self.addEventListener('fetch', (event: FetchEvent) => {
+self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -62,7 +62,7 @@ self.addEventListener('fetch', (event: FetchEvent) => {
 });
 
 // 缓存优先策略
-async function cacheFirst(request: Request): Promise<Response> {
+async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) {
     return cached;
@@ -81,7 +81,7 @@ async function cacheFirst(request: Request): Promise<Response> {
 }
 
 // 网络优先策略
-async function networkFirst(request: Request): Promise<Response> {
+async function networkFirst(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -99,7 +99,7 @@ async function networkFirst(request: Request): Promise<Response> {
 }
 
 // 判断是否为静态资源
-function isStaticAsset(pathname: string): boolean {
+function isStaticAsset(pathname) {
   return (
     pathname.startsWith('/_next/static/') ||
     pathname.startsWith('/icons/') ||
@@ -114,10 +114,8 @@ function isStaticAsset(pathname: string): boolean {
 }
 
 // 监听消息
-self.addEventListener('message', (event: MessageEvent) => {
+self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
-    (self as unknown as ServiceWorkerGlobalScope).skipWaiting();
+    self.skipWaiting();
   }
 });
-
-export {};
