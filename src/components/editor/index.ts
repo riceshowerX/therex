@@ -2,22 +2,30 @@
  * 编辑器模块导出
  */
 
-// Context 和 Hooks
-export { EditorProvider, useEditor, useCurrentDocument, useDocuments, useEditorMode, useUndoRedo } from './EditorContext';
-export type { EditorState } from './EditorContext';
+// 增强组件
+export { EnhancedAIPanel } from './EnhancedAIPanel';
+export type { 
+  AIFeature, 
+  AIModel, 
+  ChatMessage, 
+  AIFeatureDefinition, 
+  EnhancedAIPanelProps, 
+  AIRequestOptions 
+} from './EnhancedAIPanel';
 
-// 组件
-export { DocumentSidebar } from './DocumentSidebar';
-export type { DocumentSidebarProps } from './DocumentSidebar';
+export { EnhancedToolbar } from './EnhancedToolbar';
+export type { EnhancedToolbarProps } from './EnhancedToolbar';
 
-export { AIPanel } from './AIPanel';
-export type { AIPanelProps, ChatMessage } from './AIPanel';
+export { SettingsPanel } from './SettingsPanel';
+export type { 
+  AppSettings,
+  EditorSettings,
+  ThemeSettings,
+  AIConfig,
+  StorageSettings,
+  NotificationSettings,
+  SettingsPanelProps 
+} from './SettingsPanel';
 
-export { VersionHistory } from './VersionHistory';
-export type { VersionHistoryProps } from './VersionHistory';
-
-export { SearchReplace } from './SearchReplace';
-export type { SearchReplaceProps } from './SearchReplace';
-
-export { TableOfContents, TocSidebar } from './TableOfContents';
-export type { TableOfContentsProps, TocSidebarProps, TocItem } from './TableOfContents';
+export { ShortcutHelpDialog } from './ShortcutHelpDialog';
+export type { ShortcutHelpDialogProps } from './ShortcutHelpDialog';

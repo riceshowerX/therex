@@ -126,7 +126,6 @@ import { SettingsPanel, type AppSettings } from '@/components/editor/SettingsPan
 import { ShortcutHelpDialog } from '@/components/editor/ShortcutHelpDialog';
 import { documentExporter, type ExportFormat } from '@/lib/export';
 import { performanceMonitor } from '@/lib/performance';
-import { shortcutManager } from '@/lib/shortcuts';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
