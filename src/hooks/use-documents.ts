@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { documentManager, type Document } from '@/lib/storage/manager';
 import { getTemplateById } from '@/lib/templates';
@@ -45,8 +45,8 @@ export function useDocuments(options: UseDocumentsOptions = {}): UseDocumentsRet
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   
-  // 保存定时器
-  const [saveTimer, setSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  // 保存定时器引用
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // 初始化
   useEffect(() => {
@@ -63,8 +63,9 @@ export function useDocuments(options: UseDocumentsOptions = {}): UseDocumentsRet
   
   // 自动保存
   const scheduleAutoSave = useCallback((docId: string, newTitle: string, newContent: string) => {
-    if (saveTimer) {
-      clearTimeout(saveTimer);
+    // 清理之前的定时器
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
     }
     
     const timer = setTimeout(() => {
@@ -72,17 +73,17 @@ export function useDocuments(options: UseDocumentsOptions = {}): UseDocumentsRet
       setDocuments(documentManager.getAllDocuments());
     }, autoSaveDelay);
     
-    setSaveTimer(timer);
-  }, [autoSaveDelay, saveTimer]);
+    saveTimerRef.current = timer;
+  }, [autoSaveDelay]); // 移除 saveTimer 依赖
   
   // 清理定时器
   useEffect(() => {
     return () => {
-      if (saveTimer) {
-        clearTimeout(saveTimer);
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
       }
     };
-  }, [saveTimer]);
+  }, []); // 空依赖，只在卸载时清理
   
   // 创建文档
   const createDocument = useCallback((templateId?: string, folderId?: string | null): Document => {

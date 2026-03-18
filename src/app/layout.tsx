@@ -18,6 +18,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   // 基础元数据
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000'),
   title: {
     default: 'Therex - Modern Markdown Editor with AI',
     template: '%s | Therex',
