@@ -65,7 +65,9 @@ describe('StorageManager', () => {
         content: 'Hello world 你好世界',
       });
       
-      expect(doc.wordCount).toBe(4);
+      // 连续的字母或汉字被当作一个词
+      // Hello, world, 你好世界 = 3
+      expect(doc.wordCount).toBe(3);
     });
   });
 

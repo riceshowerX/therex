@@ -51,48 +51,38 @@ export function useEditorHistory(initialContent: string = ''): UseEditorHistoryR
   }, []);
 
   const undo = useCallback((): string | null => {
-    let newContent: string | null = null;
-    
-    setState((prevState) => {
-      if (prevState.past.length === 0) return prevState;
+    if (state.past.length === 0) return null;
 
-      const previous = prevState.past[prevState.past.length - 1];
-      const newPast = prevState.past.slice(0, -1);
+    const previous = state.past[state.past.length - 1];
+    const newPast = state.past.slice(0, -1);
 
-      newContent = previous;
-      lastContentRef.current = previous;
+    lastContentRef.current = previous;
 
-      return {
-        past: newPast,
-        present: previous,
-        future: [prevState.present, ...prevState.future],
-      };
+    setState({
+      past: newPast,
+      present: previous,
+      future: [state.present, ...state.future],
     });
 
-    return newContent;
-  }, []);
+    return previous;
+  }, [state]);
 
   const redo = useCallback((): string | null => {
-    let newContent: string | null = null;
-    
-    setState((prevState) => {
-      if (prevState.future.length === 0) return prevState;
+    if (state.future.length === 0) return null;
 
-      const next = prevState.future[0];
-      const newFuture = prevState.future.slice(1);
+    const next = state.future[0];
+    const newFuture = state.future.slice(1);
 
-      newContent = next;
-      lastContentRef.current = next;
+    lastContentRef.current = next;
 
-      return {
-        past: [...prevState.past, prevState.present],
-        present: next,
-        future: newFuture,
-      };
+    setState({
+      past: [...state.past, state.present],
+      present: next,
+      future: newFuture,
     });
 
-    return newContent;
-  }, []);
+    return next;
+  }, [state]);
 
   const clearHistory = useCallback(() => {
     setState({

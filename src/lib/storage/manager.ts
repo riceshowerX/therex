@@ -676,6 +676,44 @@ class StorageManager {
       logger.error('保存数据失败', error instanceof Error ? error : undefined);
     }
   }
+
+  // ==================== 资源清理 ====================
+
+  /**
+   * 销毁实例，清理所有资源
+   * 用于防止内存泄漏
+   */
+  destroy(): void {
+    // 清理定时器
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+
+    // 清理数据引用
+    this.documents.clear();
+    this.folders.clear();
+    this.versions.clear();
+    this.currentDocumentId = null;
+
+    // 重置状态
+    this.status = 'uninitialized';
+
+    logger.info('StorageManager destroyed');
+  }
+
+  /**
+   * 强制立即保存（不使用防抖）
+   */
+  forceSave(): void {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+
+    const prefix = (this.config as LocalStorageConfig).prefix || DEFAULT_PREFIX;
+    this.doSave(prefix);
+  }
 }
 
 // ==================== 单例导出 ====================
@@ -687,6 +725,17 @@ export function getStorageManager(): StorageManager {
     storageManagerInstance = new StorageManager();
   }
   return storageManagerInstance;
+}
+
+/**
+ * 重置存储管理器实例
+ * 用于测试或需要完全重新初始化时
+ */
+export function resetStorageManager(): void {
+  if (storageManagerInstance) {
+    storageManagerInstance.destroy();
+    storageManagerInstance = null;
+  }
 }
 
 // 为了向后兼容，导出一个 documentManager 别名
