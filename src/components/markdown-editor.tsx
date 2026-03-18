@@ -120,6 +120,14 @@ import { AutoSaveStatus } from '@/components/auto-save-status';
 import { ExportDialog } from '@/components/export-dialog';
 import { EditorToolbar } from '@/components/editor-toolbar';
 
+// 导入新的增强组件
+import { EnhancedAIPanel, type AIFeature, type AIRequestOptions } from '@/components/editor/EnhancedAIPanel';
+import { SettingsPanel, type AppSettings } from '@/components/editor/SettingsPanel';
+import { ShortcutHelpDialog } from '@/components/editor/ShortcutHelpDialog';
+import { documentExporter, type ExportFormat } from '@/lib/export';
+import { performanceMonitor } from '@/lib/performance';
+import { shortcutManager } from '@/lib/shortcuts';
+
 // 动态导入编辑器组件
 const MDEditor = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default),
@@ -195,7 +203,18 @@ export default function MarkdownEditor() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState('');
   const [aiAction, setAiAction] = useState<string>('');
+  const [activeAIFeature, setActiveAIFeature] = useState<AIFeature>('chat');
   
+  // 设置面板
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+  
+  // 快捷键帮助
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  
+  // 选中文本
+  const [selectedText, setSelectedText] = useState('');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -847,6 +866,225 @@ ${content}
     toast.success('已复制到剪贴板');
   }, [content]);
 
+  // 加载设置
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('therex-settings');
+      if (stored) {
+        setAppSettings(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  }, []);
+
+  // 保存设置
+  const handleSettingsChange = useCallback((newSettings: AppSettings) => {
+    setAppSettings(newSettings);
+    localStorage.setItem('therex-settings', JSON.stringify(newSettings));
+    toast.success('设置已保存');
+  }, []);
+
+  // 导出设置
+  const handleExportSettings = useCallback(() => {
+    if (!appSettings) return;
+    const data = JSON.stringify(appSettings, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `therex-settings-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('设置已导出');
+  }, [appSettings]);
+
+  // 导入设置
+  const handleImportSettings = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        try {
+          const text = await file.text();
+          const imported = JSON.parse(text);
+          setAppSettings(imported);
+          localStorage.setItem('therex-settings', JSON.stringify(imported));
+          toast.success('设置已导入');
+        } catch {
+          toast.error('导入失败：无效的设置文件');
+        }
+      }
+    };
+    input.click();
+  }, []);
+
+  // 重置设置
+  const handleResetSettings = useCallback(() => {
+    const defaultSettings = {
+      editor: {
+        fontSize: 14,
+        fontFamily: 'JetBrains Mono, Fira Code, monospace',
+        lineHeight: 1.6,
+        tabSize: 2,
+        wordWrap: true,
+        lineNumbers: true,
+        minimap: false,
+        autoSave: true,
+        autoSaveDelay: 500,
+        spellCheck: true,
+        highlightActiveLine: true,
+        showInvisibles: false,
+        indentWithTabs: false,
+      },
+      theme: {
+        mode: 'system' as const,
+        accentColor: '#3b82f6',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        borderRadius: 8,
+        animations: true,
+        compactMode: false,
+      },
+      ai: [],
+      storage: {
+        provider: 'local' as const,
+        autoSync: false,
+        syncInterval: 30000,
+        maxVersions: 20,
+        compressionEnabled: false,
+      },
+      notifications: {
+        soundEnabled: false,
+        desktopNotifications: false,
+        emailNotifications: false,
+        autoSaveNotifications: true,
+      },
+      language: 'zh-CN',
+      shortcuts: {},
+    };
+    setAppSettings(defaultSettings);
+    localStorage.setItem('therex-settings', JSON.stringify(defaultSettings));
+    toast.success('设置已恢复默认');
+  }, []);
+
+  // 清除数据
+  const handleClearData = useCallback(() => {
+    localStorage.clear();
+    toast.success('所有数据已清除');
+    window.location.reload();
+  }, []);
+
+  // AI 请求处理
+  const handleAIRequest = useCallback(async (
+    feature: AIFeature,
+    _content: string,
+    selection?: string,
+    _options?: AIRequestOptions
+  ): Promise<string | AsyncGenerator<string, void, unknown>> => {
+    const config = aiConfigManager.getConfig();
+    
+    if (!config.apiKey) {
+      return '请先在设置中配置 AI API Key';
+    }
+
+    const prompt = selection || _content;
+    
+    // 实际调用 AI API
+    try {
+      const response = await fetch('/api/ai-assist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: feature,
+          content: _content,
+          selection,
+          config: {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            apiEndpoint: config.apiEndpoint,
+            model: config.model,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        return `AI 请求失败: ${response.status}`;
+      }
+
+      // 流式响应处理
+      async function* generator() {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          yield 'AI 服务暂不可用';
+          return;
+        }
+        
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  yield parsed.content;
+                }
+              } catch {
+                // 忽略解析错误
+              }
+            }
+          }
+        }
+      }
+
+      return generator();
+    } catch (error) {
+      console.error('AI request error:', error);
+      return 'AI 请求出错，请稍后重试';
+    }
+  }, []);
+
+  // 应用 AI 结果
+  const handleApplyAIResult = useCallback((result: string, _feature: AIFeature) => {
+    setContent(prev => prev + '\n\n' + result);
+    toast.success('已应用到文档');
+  }, []);
+
+  // 增强导出功能
+  const handleEnhancedExport = useCallback(async (format: ExportFormat) => {
+    try {
+      await documentExporter.export(
+        content,
+        title || 'document',
+        { format },
+        undefined
+      );
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('导出失败');
+    }
+  }, [content, title]);
+
+  // 性能监控初始化
+  useEffect(() => {
+    performanceMonitor.startMonitoring();
+    return () => {
+      performanceMonitor.stopMonitoring();
+    };
+  }, []);
+
   // 快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -876,19 +1114,23 @@ ${content}
           // 历史版本功能
         } else if (e.key === 'k') {
           e.preventDefault();
-          // 如果当前是关闭状态，需要检查配置后再打开
-          if (!showAIChat) {
-            handleOpenAIChat();
-          } else {
-            setShowAIChat(false);
-          }
+          // 打开增强版 AI 面板
+          setShowAIPanel(prev => !prev);
+        } else if (e.key === ',') {
+          e.preventDefault();
+          // 打开设置面板
+          setShowSettingsPanel(prev => !prev);
+        } else if (e.key === '/') {
+          e.preventDefault();
+          // 打开快捷键帮助
+          setShowShortcutHelp(prev => !prev);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, handleSaveVersion, showAIChat, handleOpenAIChat]);
+  }, [handleUndo, handleRedo, handleSaveVersion]);
 
   // 格式化时间
   const formatTime = (timestamp: number) => {
@@ -1273,7 +1515,7 @@ ${content}
                 variant="ghost" 
                 size="sm" 
                 className="gap-2 flex-1"
-                onClick={() => router.push('/settings')} 
+                onClick={() => setShowSettingsPanel(true)} 
                 title="设置"
               >
                 <Settings className="h-4 w-4" />
@@ -1729,54 +1971,38 @@ ${content}
         </DialogContent>
       </Dialog>
 
-      {/* AI 写作助手面板 */}
-      <Dialog open={showAIPanel} onOpenChange={setShowAIPanel}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              AI 写作助手
-              {aiLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-            </DialogTitle>
-            <DialogDescription>
-              {aiAction === 'continue' && '正在续写内容...'}
-              {aiAction === 'polish' && '正在润色文本...'}
-              {aiAction === 'expand' && '正在扩展内容...'}
-              {aiAction === 'rewrite' && '正在改写内容...'}
-              {aiAction === 'summarize' && '正在生成摘要...'}
-              {aiAction === 'outline' && '正在生成大纲...'}
-              {aiAction === 'title' && '正在生成标题...'}
-              {aiAction === 'translate' && '正在翻译文本...'}
-              {aiAction === 'fix' && '正在修正错误...'}
-              {aiAction === 'explain' && '正在解释内容...'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="min-h-[200px] max-h-[400px] overflow-y-auto rounded-md border p-4 bg-muted/50">
-            {aiLoading && !aiResult ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                正在生成...
-              </div>
-            ) : (
-              <div className="whitespace-pre-wrap">{aiResult}</div>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowAIPanel(false)}>
-              取消
-            </Button>
-            <Button 
-              onClick={applyAIResult} 
-              disabled={aiLoading || !aiResult}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              应用到文档
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* AI 写作助手面板 - 使用新的增强版组件 */}
+      <EnhancedAIPanel
+        isOpen={showAIPanel}
+        onClose={() => setShowAIPanel(false)}
+        activeFeature={activeAIFeature}
+        content={content}
+        selection={selectedText}
+        onApply={handleApplyAIResult}
+        onFeatureChange={setActiveAIFeature}
+        onAIRequest={handleAIRequest}
+        position="modal"
+      />
+
+      {/* 设置面板 */}
+      {appSettings && (
+        <SettingsPanel
+          open={showSettingsPanel}
+          onClose={() => setShowSettingsPanel(false)}
+          settings={appSettings}
+          onSettingsChange={handleSettingsChange}
+          onExportSettings={handleExportSettings}
+          onImportSettings={handleImportSettings}
+          onResetSettings={handleResetSettings}
+          onClearData={handleClearData}
+        />
+      )}
+
+      {/* 快捷键帮助 */}
+      <ShortcutHelpDialog
+        open={showShortcutHelp}
+        onOpenChange={setShowShortcutHelp}
+      />
 
       {/* 删除确认对话框 */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -2035,7 +2261,8 @@ ${content}
             </Button>
             <Button onClick={() => {
               setShowAIConfigAlert(false);
-              router.push('/settings');
+              setShowAIConfigAlert(false);
+              setShowSettingsPanel(true);
             }}>
               <Settings className="h-4 w-4 mr-2" />
               前往设置
