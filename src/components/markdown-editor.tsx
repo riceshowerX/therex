@@ -867,13 +867,58 @@ ${content}
 
   // 加载设置
   useEffect(() => {
+    const defaultSettings: AppSettings = {
+      editor: {
+        fontSize: 14,
+        fontFamily: 'JetBrains Mono, Fira Code, monospace',
+        lineHeight: 1.6,
+        tabSize: 2,
+        wordWrap: true,
+        lineNumbers: true,
+        minimap: false,
+        autoSave: true,
+        autoSaveDelay: 500,
+        spellCheck: true,
+        highlightActiveLine: true,
+        showInvisibles: false,
+        indentWithTabs: false,
+      },
+      theme: {
+        mode: 'system',
+        accentColor: '#3b82f6',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        borderRadius: 8,
+        animations: true,
+        compactMode: false,
+      },
+      ai: [],
+      storage: {
+        provider: 'local',
+        autoSync: false,
+        syncInterval: 30000,
+        maxVersions: 20,
+        compressionEnabled: false,
+      },
+      notifications: {
+        soundEnabled: false,
+        desktopNotifications: false,
+        emailNotifications: false,
+        autoSaveNotifications: true,
+      },
+      language: 'zh-CN',
+      shortcuts: {},
+    };
+    
     try {
       const stored = localStorage.getItem('therex-settings');
       if (stored) {
-        setAppSettings(JSON.parse(stored));
+        setAppSettings({ ...defaultSettings, ...JSON.parse(stored) });
+      } else {
+        setAppSettings(defaultSettings);
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
+      setAppSettings(defaultSettings);
     }
   }, []);
 
@@ -1514,7 +1559,7 @@ ${content}
                 variant="ghost" 
                 size="sm" 
                 className="gap-2 flex-1"
-                onClick={() => setShowSettingsPanel(true)} 
+                onClick={() => router.push('/settings')} 
                 title="设置"
               >
                 <Settings className="h-4 w-4" />
@@ -2260,8 +2305,7 @@ ${content}
             </Button>
             <Button onClick={() => {
               setShowAIConfigAlert(false);
-              setShowAIConfigAlert(false);
-              setShowSettingsPanel(true);
+              router.push('/settings');
             }}>
               <Settings className="h-4 w-4 mr-2" />
               前往设置
