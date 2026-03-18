@@ -1194,17 +1194,26 @@ ${content}
     <div ref={containerRef} className="h-screen flex bg-background print:bg-white">
       {/* 侧边栏 - 文档列表 */}
       {showSidebar && (
-        <div className="w-64 border-r bg-card flex flex-col print:hidden">
-          {/* 侧边栏头部 */}
-          <div className="p-3 border-b flex items-center justify-between">
+        <div className="w-72 border-r bg-sidebar flex flex-col print:hidden shadow-sm">
+          {/* 侧边栏头部 - 品牌标识 */}
+          <div className="p-4 border-b border-sidebar-border">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="font-semibold text-base text-sidebar-foreground">Therex</h1>
+                <p className="text-xs text-muted-foreground">专注写作，AI赋能</p>
+              </div>
+            </div>
             <Tabs value={sidebarTab} onValueChange={(v) => setSidebarTab(v as 'documents' | 'folders')} className="w-full">
-              <TabsList className="w-full">
-                <TabsTrigger value="documents" className="flex-1 text-xs">
-                  <FileText className="h-3 w-3 mr-1" />
+              <TabsList className="w-full bg-muted/50">
+                <TabsTrigger value="documents" className="flex-1 text-xs data-[state=active]:bg-background">
+                  <FileText className="h-3.5 w-3.5 mr-1.5" />
                   文档
                 </TabsTrigger>
-                <TabsTrigger value="folders" className="flex-1 text-xs">
-                  <FolderTree className="h-3 w-3 mr-1" />
+                <TabsTrigger value="folders" className="flex-1 text-xs data-[state=active]:bg-background">
+                  <FolderTree className="h-3.5 w-3.5 mr-1.5" />
                   文件夹
                 </TabsTrigger>
               </TabsList>
@@ -1214,20 +1223,20 @@ ${content}
           {/* 文档列表 */}
           {sidebarTab === 'documents' && (
             <>
-              <div className="p-2 border-b flex items-center gap-1">
+              <div className="p-3 border-b border-sidebar-border flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="flex-1 justify-start"
+                  className="flex-1 justify-start h-9 bg-background hover:bg-accent"
                   onClick={() => setShowTemplates(true)}
                 >
-                  <Layout className="h-4 w-4 mr-2" />
+                  <Layout className="h-4 w-4 mr-2 text-primary" />
                   从模板新建
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="default"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-9 w-9"
                   onClick={() => handleCreateDocument()}
                   title="新建文档"
                 >
@@ -1239,28 +1248,38 @@ ${content}
                 <div className="p-2 space-y-1">
                   {/* 收藏的文档 */}
                   {documents.filter(doc => doc.isFavorite).length > 0 && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
-                        <Star className="h-3 w-3" />
+                    <div className="mb-2">
+                      <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                         收藏
                       </div>
                       {documents.filter(doc => doc.isFavorite).map((doc) => (
                         <div
                           key={doc.id}
-                          className={`group flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                          className={`group flex items-start gap-2.5 p-2.5 rounded-lg cursor-pointer transition-all duration-150 ${
                             currentDoc?.id === doc.id
-                              ? 'bg-accent text-accent-foreground'
-                              : 'hover:bg-accent/50'
+                              ? 'bg-sidebar-accent shadow-sm border border-sidebar-border'
+                              : 'hover:bg-sidebar-accent/50'
                           }`}
                           onClick={() => handleSwitchDocument(doc.id)}
                         >
-                          <FileText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                          <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                            currentDoc?.id === doc.id 
+                              ? 'bg-primary/10' 
+                              : 'bg-muted/50'
+                          }`}>
+                            <FileText className={`h-4 w-4 ${
+                              currentDoc?.id === doc.id 
+                                ? 'text-primary' 
+                                : 'text-muted-foreground'
+                            }`} />
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm font-medium truncate">{doc.title}</span>
-                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-medium truncate text-sidebar-foreground">{doc.title}</span>
+                              <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
                             </div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground mt-0.5">
                               {formatTime(doc.updatedAt)} · {doc.wordCount} 词
                             </div>
                           </div>
@@ -1269,10 +1288,10 @@ ${content}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0 transition-opacity"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <MoreHorizontal className="h-3 w-3" />
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
@@ -1303,7 +1322,7 @@ ${content}
                               </DropdownMenuSub>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
-                                className="text-destructive"
+                                className="text-destructive focus:text-destructive"
                                 onClick={() => {
                                   setDocToDelete(doc.id);
                                   setShowDeleteDialog(true);
@@ -1322,19 +1341,29 @@ ${content}
                   {documents.filter(doc => !doc.isFavorite).map((doc) => (
                     <div
                       key={doc.id}
-                      className={`group flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                      className={`group flex items-start gap-2.5 p-2.5 rounded-lg cursor-pointer transition-all duration-150 ${
                         currentDoc?.id === doc.id
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-accent/50'
+                          ? 'bg-sidebar-accent shadow-sm border border-sidebar-border'
+                          : 'hover:bg-sidebar-accent/50'
                       }`}
                       onClick={() => handleSwitchDocument(doc.id)}
                     >
-                      <FileText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                        currentDoc?.id === doc.id 
+                          ? 'bg-primary/10' 
+                          : 'bg-muted/50'
+                      }`}>
+                        <FileText className={`h-4 w-4 ${
+                          currentDoc?.id === doc.id 
+                            ? 'text-primary' 
+                            : 'text-muted-foreground'
+                        }`} />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-medium truncate">{doc.title}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium truncate text-sidebar-foreground">{doc.title}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                           <span>{formatTime(doc.updatedAt)}</span>
                           <span>·</span>
                           <span>{doc.wordCount} 词</span>
@@ -1510,55 +1539,53 @@ ${content}
           )}
           
           {/* 侧边栏底部 */}
-          <div className="p-3 border-t space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{documents.length} 个文档</span>
-              <span>
-                {documents.reduce((sum, doc) => sum + doc.wordCount, 0).toLocaleString()} 词
-              </span>
+          <div className="p-3 border-t border-sidebar-border bg-sidebar/50 space-y-2">
+            {/* 统计信息 */}
+            <div className="flex items-center justify-between text-xs px-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                <span>{documents.length} 个文档</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>{documents.reduce((sum, doc) => sum + doc.wordCount, 0).toLocaleString()} 词</span>
+              </div>
             </div>
             
-            {/* 版本历史按钮 */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => setShowVersionHistory(true)}
-            >
-              <GitBranch className="h-4 w-4 mr-2" />
-              版本历史
-              {versions.length > 0 && (
-                <Badge variant="secondary" className="ml-auto">{versions.length}</Badge>
-              )}
-            </Button>
-            
-            {/* AI 对话按钮 */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={handleOpenAIChat}
-            >
-              <MessageSquare className="h-4 w-4 mr-2" />
-              AI 对话
-            </Button>
-            
-            {/* 分隔线 */}
-            <div className="border-t my-2" />
+            {/* 快捷操作按钮组 */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="justify-start h-9 bg-background"
+                onClick={() => setShowVersionHistory(true)}
+              >
+                <GitBranch className="h-4 w-4 mr-2 text-primary" />
+                版本历史
+                {versions.length > 0 && (
+                  <Badge variant="secondary" className="ml-auto text-xs">{versions.length}</Badge>
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="justify-start h-9 bg-background"
+                onClick={handleOpenAIChat}
+              >
+                <MessageSquare className="h-4 w-4 mr-2 text-primary" />
+                AI 对话
+              </Button>
+            </div>
             
             {/* 底部工具按钮 */}
-            <div className="flex items-center gap-1">
-              {/* 文档统计 */}
+            <div className="flex items-center gap-1.5 pt-1">
               <DocumentStats content={content} />
-              
-              {/* 快捷键面板 */}
               <ShortcutPanel />
-              
-              {/* 设置 */}
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="gap-2 flex-1"
+                className="gap-2 flex-1 hover:bg-sidebar-accent"
                 onClick={() => router.push('/settings')} 
                 title="设置"
               >
@@ -1573,13 +1600,14 @@ ${content}
       {/* 主内容区 */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部工具栏 */}
-        <div className="border-b bg-card px-4 py-2 print:hidden">
+        <div className="border-b border-border bg-card/80 backdrop-blur-sm px-4 py-2.5 print:hidden sticky top-0 z-10">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               {/* 侧边栏切换 */}
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-9 w-9 hover:bg-accent"
                 onClick={() => setShowSidebar(!showSidebar)}
                 title="切换侧边栏"
               >
@@ -1592,8 +1620,8 @@ ${content}
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="border-none shadow-none text-lg font-semibold w-48 focus-visible:ring-0"
-                placeholder="文档标题"
+                className="border-none shadow-none text-lg font-semibold w-52 focus-visible:ring-0 bg-transparent"
+                placeholder="输入文档标题..."
               />
               
               {/* 自动保存状态 */}
@@ -1607,11 +1635,12 @@ ${content}
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-9 w-9 hover:bg-accent"
                   onClick={() => handleToggleFavorite(currentDoc.id)}
                   title={currentDoc.isFavorite ? '取消收藏' : '收藏'}
                 >
                   {currentDoc.isFavorite ? (
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                   ) : (
                     <Star className="h-4 w-4" />
                   )}
@@ -1621,24 +1650,28 @@ ${content}
 
             <div className="flex items-center gap-1 flex-wrap">
               {/* 撤销/重做 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleUndo}
-                disabled={undoStack.length <= 1}
-                title="撤销 (Ctrl+Z)"
-              >
-                <Undo className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRedo}
-                disabled={redoStack.length === 0}
-                title="重做 (Ctrl+Y)"
-              >
-                <Redo className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 hover:bg-accent"
+                  onClick={handleUndo}
+                  disabled={undoStack.length <= 1}
+                  title="撤销 (Ctrl+Z)"
+                >
+                  <Undo className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 hover:bg-accent"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0}
+                  title="重做 (Ctrl+Y)"
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
+              </div>
 
               <Separator orientation="vertical" className="h-6 mx-1" />
 
@@ -1646,6 +1679,7 @@ ${content}
               <Button
                 variant={showSearchReplace ? 'secondary' : 'ghost'}
                 size="icon"
+                className="h-9 w-9"
                 onClick={() => setShowSearchReplace(!showSearchReplace)}
                 title="查找替换 (Ctrl+F)"
               >
@@ -1657,12 +1691,12 @@ ${content}
               {/* AI 写作助手 */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" title="AI 写作助手">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-primary/10 hover:text-primary" title="AI 写作助手">
                     <Sparkles className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuLabel className="flex items-center gap-2">
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel className="flex items-center gap-2 text-primary">
                     <Sparkles className="h-4 w-4" />
                     AI 写作助手
                   </DropdownMenuLabel>
@@ -1715,46 +1749,53 @@ ${content}
               <Separator orientation="vertical" className="h-6 mx-1" />
 
               {/* 视图切换 */}
-              <Button
-                variant={mode === 'edit' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setMode('edit')}
-                title="编辑模式"
-              >
-                <FileCode className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={mode === 'live' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setMode('live')}
-                title="实时预览"
-              >
-                <SplitSquareHorizontal className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={mode === 'preview' ? 'secondary' : 'ghost'}
-                size="icon"
-                onClick={() => setMode('preview')}
-                title="预览模式"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded-md p-0.5">
+                <Button
+                  variant={mode === 'edit' ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={`h-8 w-8 ${mode === 'edit' ? 'shadow-sm' : ''}`}
+                  onClick={() => setMode('edit')}
+                  title="编辑模式"
+                >
+                  <FileCode className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={mode === 'live' ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={`h-8 w-8 ${mode === 'live' ? 'shadow-sm' : ''}`}
+                  onClick={() => setMode('live')}
+                  title="实时预览"
+                >
+                  <SplitSquareHorizontal className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={mode === 'preview' ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className={`h-8 w-8 ${mode === 'preview' ? 'shadow-sm' : ''}`}
+                  onClick={() => setMode('preview')}
+                  title="预览模式"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
 
               <Separator orientation="vertical" className="h-6 mx-1" />
 
               {/* 字体大小 */}
-              <Button variant="ghost" size="icon" onClick={() => adjustFontSize(-1)} title="缩小字体">
-                <ZoomOut className="h-4 w-4" />
-              </Button>
-              <span className="text-xs w-8 text-center">{fontSize}</span>
-              <Button variant="ghost" size="icon" onClick={() => adjustFontSize(1)} title="放大字体">
-                <ZoomIn className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-0.5 bg-muted/50 rounded-md p-0.5">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => adjustFontSize(-1)} title="缩小字体">
+                  <ZoomOut className="h-3.5 w-3.5" />
+                </Button>
+                <span className="text-xs w-6 text-center font-medium">{fontSize}</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => adjustFontSize(1)} title="放大字体">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                </Button>
+              </div>
 
               <Separator orientation="vertical" className="h-6 mx-1" />
 
               {/* 导入导出 */}
-              <Button variant="ghost" size="icon" onClick={importFile} title="导入文件">
+              <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={importFile} title="导入文件">
                 <Upload className="h-4 w-4" />
               </Button>
               <ExportDialog 
@@ -1765,7 +1806,7 @@ ${content}
               {/* 主题切换 */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" title="切换主题">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" title="切换主题">
                     <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                     <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                   </Button>
@@ -1786,14 +1827,14 @@ ${content}
               <Separator orientation="vertical" className="h-6 mx-1" />
 
               {/* 其他功能 */}
-              <Button variant="ghost" size="icon" onClick={copyContent} title="复制内容">
+              <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={copyContent} title="复制内容">
                 <Copy className="h-4 w-4" />
               </Button>
               
-              <Button variant="ghost" size="icon" onClick={() => window.print()} title="打印">
+              <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={() => window.print()} title="打印">
                 <Printer className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={toggleFullscreen} title="全屏">
+              <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={toggleFullscreen} title="全屏">
                 <Maximize2 className="h-4 w-4" />
               </Button>
             </div>
@@ -1801,36 +1842,36 @@ ${content}
           
           {/* 查找替换栏 */}
           {showSearchReplace && (
-            <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+            <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-border">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="查找..."
-                className="w-48 h-8"
+                className="w-52 h-9 bg-muted/50"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleFindNext();
                   if (e.key === 'Escape') setShowSearchReplace(false);
                 }}
               />
-              <Button variant="ghost" size="sm" onClick={handleFindNext}>
+              <Button variant="secondary" size="sm" onClick={handleFindNext}>
                 查找下一个
               </Button>
-              <Replace className="h-4 w-4 text-muted-foreground ml-4" />
+              <Replace className="h-4 w-4 text-muted-foreground ml-2" />
               <Input
                 value={replaceQuery}
                 onChange={(e) => setReplaceQuery(e.target.value)}
                 placeholder="替换为..."
-                className="w-48 h-8"
+                className="w-52 h-9 bg-muted/50"
               />
-              <Button variant="ghost" size="sm" onClick={handleReplace}>
+              <Button variant="secondary" size="sm" onClick={handleReplace}>
                 全部替换
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-9 w-9"
                 onClick={() => setShowSearchReplace(false)}
               >
                 <X className="h-4 w-4" />
@@ -1843,17 +1884,17 @@ ${content}
         <div className="flex-1 flex overflow-hidden">
           {/* 目录侧边栏 */}
           {toc.length > 0 && mode !== 'edit' && (
-            <div className="w-52 border-r bg-card overflow-y-auto p-4 hidden lg:block print:hidden">
-              <h3 className="font-semibold mb-3 flex items-center gap-2 sticky top-0 bg-card pb-2 border-b">
-                <BookOpen className="h-4 w-4" />
+            <div className="w-56 border-r border-border bg-sidebar/30 overflow-y-auto p-4 hidden lg:block print:hidden">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2 sticky top-0 bg-sidebar/30 backdrop-blur-sm pb-2 border-b border-border">
+                <BookOpen className="h-4 w-4 text-primary" />
                 目录
               </h3>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {toc.map((item, index) => (
                   <button
                     key={index}
-                    className="block w-full text-left text-sm hover:bg-accent px-2 py-1 rounded transition-colors truncate"
-                    style={{ paddingLeft: `${(item.level - 1) * 12 + 8}px` }}
+                    className="block w-full text-left text-sm hover:bg-accent hover:text-accent-foreground px-2.5 py-1.5 rounded-md transition-colors truncate text-muted-foreground hover:text-foreground"
+                    style={{ paddingLeft: `${(item.level - 1) * 12 + 10}px` }}
                     onClick={() => {
                       // 尝试多种选择器以提高兼容性
                       const element = document.querySelector(`[data-heading="${item.id}"]`) ||
@@ -1904,14 +1945,14 @@ ${content}
             ) : mode === 'preview' ? (
               // 预览模式：只显示自定义预览
               <ScrollArea className="h-full">
-                <div className="p-6">
+                <div className="p-8 max-w-4xl mx-auto">
                   <MarkdownPreview markdown={content} />
                 </div>
               </ScrollArea>
             ) : (
               // 实时模式：左侧编辑器，右侧自定义预览
               <div className="flex h-full">
-                <div className="w-1/2 border-r">
+                <div className="w-1/2 border-r border-border">
                   <MDEditor
                     value={content}
                     onChange={(val) => setContent(val || '')}
@@ -1925,9 +1966,9 @@ ${content}
                     }}
                   />
                 </div>
-                <div className="w-1/2">
+                <div className="w-1/2 bg-muted/20">
                   <ScrollArea className="h-full">
-                    <div className="p-6">
+                    <div className="p-8">
                       <MarkdownPreview markdown={content} />
                     </div>
                   </ScrollArea>
@@ -1938,24 +1979,35 @@ ${content}
         </div>
 
         {/* 底部状态栏 */}
-        <div className="border-t bg-card px-4 py-1.5 flex items-center justify-between text-xs text-muted-foreground print:hidden">
-          <div className="flex items-center gap-4">
-            <span>字符: {wordCount.chars.toLocaleString()}</span>
-            <span>词数: {wordCount.words.toLocaleString()}</span>
-            <span>行数: {wordCount.lines.toLocaleString()}</span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              阅读约 {readingTime} 分钟
-            </span>
+        <div className="border-t border-border bg-card/80 backdrop-blur-sm px-5 py-2 flex items-center justify-between text-xs text-muted-foreground print:hidden">
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground">{wordCount.chars.toLocaleString()}</span>
+              <span>字符</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground">{wordCount.words.toLocaleString()}</span>
+              <span>词</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-foreground">{wordCount.lines.toLocaleString()}</span>
+              <span>行</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span>阅读约 {readingTime} 分钟</span>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              已保存
-            </span>
-            <span>Markdown</span>
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-emerald-600 dark:text-emerald-400">已保存</span>
+            </div>
+            <div className="px-2 py-0.5 bg-muted rounded text-muted-foreground">
+              Markdown
+            </div>
             {currentDoc && (
-              <span>
+              <span className="text-muted-foreground">
                 最后编辑: {formatTime(currentDoc.updatedAt)}
               </span>
             )}

@@ -67,6 +67,7 @@ import {
   X,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Kbd } from '@/components/ui/kbd';
@@ -257,7 +258,7 @@ const StreamingText = memo(function StreamingText({
     <div className="prose prose-sm dark:prose-invert max-w-none">
       <div className="whitespace-pre-wrap">{text}</div>
       {isStreaming && (
-        <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />
+        <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 rounded-sm" />
       )}
     </div>
   );
@@ -286,32 +287,34 @@ const ChatMessageItem = memo(function ChatMessageItem({
 
   return (
     <div
-      className={`flex gap-3 p-3 rounded-lg ${
+      className={`flex gap-3 p-4 rounded-xl transition-all duration-200 ${
         message.role === 'user'
-          ? 'bg-primary/10 ml-8'
-          : 'bg-muted/50 mr-8'
+          ? 'bg-primary/5 ml-6 border border-primary/10'
+          : 'bg-muted/30 mr-6 border border-border/50'
       }`}
     >
       <div className="shrink-0">
         {message.role === 'user' ? (
-          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-            <User className="h-4 w-4 text-primary-foreground" />
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
+            <User className="h-4 w-4 text-primary" />
           </div>
         ) : (
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Bot className="h-4 w-4 text-white" />
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-sm">
+            <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
         )}
       </div>
       <div className="flex-1 min-w-0">
         <StreamingText text={message.content} isStreaming={message.isStreaming || false} />
         {!message.isStreaming && (
-          <div className="flex items-center gap-2 mt-2">
-            <Button variant="ghost" size="sm" onClick={handleCopy}>
-              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border/30">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleCopy}>
+              {copied ? <Check className="h-3 w-3 mr-1 text-primary" /> : <Copy className="h-3 w-3 mr-1" />}
+              {copied ? '已复制' : '复制'}
             </Button>
             {onApply && message.role === 'assistant' && (
-              <Button variant="ghost" size="sm" onClick={onApply}>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onApply}>
+                <Plus className="h-3 w-3 mr-1" />
                 应用到文档
               </Button>
             )}

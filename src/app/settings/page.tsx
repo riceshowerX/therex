@@ -169,43 +169,51 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* 顶部导航 */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+        <div className="container flex h-16 items-center px-6 max-w-4xl">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.push('/')}
-            className="gap-2"
+            className="gap-2 hover:bg-accent"
           >
             <ArrowLeft className="h-4 w-4" />
             {t.settings.backToEditor}
           </Button>
-          <h1 className="ml-4 text-lg font-semibold">{t.settings.title}</h1>
+          <Separator orientation="vertical" className="h-6 mx-4" />
+          <h1 className="text-lg font-semibold flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-primary" />
+            {t.settings.title}
+          </h1>
         </div>
       </header>
 
-      <main className="container px-4 py-6 max-w-4xl">
+      <main className="container px-6 py-8 max-w-4xl">
         <div className="space-y-6">
           {/* AI 模型配置 */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Cpu className="h-5 w-5" />
-                <CardTitle>AI 模型配置</CardTitle>
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Cpu className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">AI 模型配置</CardTitle>
+                  <CardDescription className="text-sm mt-0.5">
+                    配置 AI 写作助手的模型和 API 参数
+                  </CardDescription>
+                </div>
               </div>
-              <CardDescription>
-                配置 AI 写作助手的模型和 API 参数
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* 提供商选择 */}
               <div className="space-y-2">
-                <Label htmlFor="provider">AI 提供商</Label>
+                <Label htmlFor="provider" className="text-sm font-medium">AI 提供商</Label>
                 <Select
                   value={config.provider}
                   onValueChange={(value) => handleProviderChange(value as AIProvider)}
                 >
-                  <SelectTrigger id="provider">
+                  <SelectTrigger id="provider" className="bg-muted/50">
                     <SelectValue placeholder="选择 AI 提供商" />
                   </SelectTrigger>
                   <SelectContent>
@@ -223,8 +231,8 @@ export default function SettingsPage() {
 
               {/* API Key */}
               <div className="space-y-2">
-                <Label htmlFor="apiKey" className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
+                <Label htmlFor="apiKey" className="flex items-center gap-2 text-sm font-medium">
+                  <Key className="h-4 w-4 text-primary" />
                   API Key
                 </Label>
                 <div className="relative">
@@ -237,7 +245,7 @@ export default function SettingsPage() {
                       setTestResult(null);
                     }}
                     placeholder="输入您的 API Key"
-                    className="pr-10"
+                    className="pr-10 bg-muted/50"
                   />
                   <Button
                     type="button"
