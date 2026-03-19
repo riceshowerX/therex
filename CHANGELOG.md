@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-03-19
+
+### 🎨 UI 设计优化
+
+#### 🎨 主题重构
+- 重新设计主题色彩，采用温暖翠绿色作为主色调
+- 优化浅色/深色模式配色方案
+- 添加自定义滚动条样式
+- 增强文本选择高亮效果
+
+#### 📐 布局优化
+- 优化侧边栏布局：添加品牌标识、改进文档列表样式
+- 改进顶部工具栏：添加毛玻璃效果、优化按钮分组
+- 优化底部状态栏：重新设计统计数据展示
+- 增强目录侧边栏样式
+- 优化设置页面布局和卡片样式
+
+#### 💬 组件优化
+- 改进 AI 面板消息气泡样式
+- 优化头像样式和渐变背景
+- 添加全局过渡动画效果
+
+### 🔒 安全修复
+
+#### 依赖安全更新
+- 添加 40+ 依赖安全覆盖（overrides）修复已知漏洞
+- 修复严重（Critical）和高危（High）漏洞
+- 更新 semver, path-to-regexp, tough-cookie 等关键依赖
+- 更新 undici, follow-redirects, cross-spawn 等网络依赖
+- 更新 dompurify, prismjs 等前端安全相关依赖
+
+### 🐛 Bug 修复
+
+- 修复设置按钮无法打开设置页面的问题
+- 修复 Next.js middleware 弃用警告（重命名为 proxy）
+- 修复 lockfile 检测警告（添加 outputFileTracingRoot 配置）
+
+### 📦 其他更新
+
+- 更新项目 logo 和 icon 为 GitHub 项目官方图标
+- 更新依赖到最新兼容版本
+
 ## [1.3.0] - 2025-03-16
 
 ### 🚀 生产环境优化
