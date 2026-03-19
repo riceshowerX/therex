@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   // 允许的开发来源
   allowedDevOrigins: ['*.dev.coze.site'],
 
+  // 设置项目根目录，消除 lockfile 检测警告
+  outputFileTracingRoot: '/workspace/projects',
+
   // 图片优化配置
   images: {
     remotePatterns: [
