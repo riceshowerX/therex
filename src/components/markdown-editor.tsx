@@ -252,6 +252,9 @@ export default function MarkdownEditor() {
   // 移动端状态
   const [isMobile, setIsMobile] = useState(false);
   
+  // 客户端挂载状态（用于避免 hydration 不匹配）
+  const [mounted, setMounted] = useState(false);
+  
   // AI 使用统计
   const [aiUsageStats, setAiUsageStats] = useState<{
     totalTokens: number;
@@ -265,6 +268,8 @@ export default function MarkdownEditor() {
 
   // 初始化
   useEffect(() => {
+    setMounted(true);
+    
     const docs = documentManager.getAllDocuments();
     setDocuments(docs);
     
@@ -1389,7 +1394,7 @@ ${content}
                 <p className="text-xs text-muted-foreground">专注写作，AI赋能</p>
               </div>
             </div>
-            <Tabs value={sidebarTab} onValueChange={(v) => setSidebarTab(v as 'documents' | 'folders')} className="w-full">
+            <Tabs id="sidebar-tabs" value={sidebarTab} onValueChange={(v) => setSidebarTab(v as 'documents' | 'folders')} className="w-full">
               <TabsList className="w-full bg-muted/50">
                 <TabsTrigger value="documents" className="flex-1 text-xs data-[state=active]:bg-background">
                   <FileText className="h-3.5 w-3.5 mr-1.5" />
@@ -2743,7 +2748,7 @@ ${content}
       />
 
       {/* 移动端底部工具栏 */}
-      {isMobile && (
+      {mounted && isMobile && (
         <MobileToolbar
           onUndo={handleUndo}
           onRedo={handleRedo}
