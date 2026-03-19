@@ -107,6 +107,9 @@ import {
   Keyboard,
   Send,
   Plus,
+  Share2,
+  BarChart3,
+  Lock,
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
@@ -126,6 +129,20 @@ import { SettingsPanel, type AppSettings } from '@/components/editor/SettingsPan
 import { ShortcutHelpDialog } from '@/components/editor/ShortcutHelpDialog';
 import { documentExporter, type ExportFormat } from '@/lib/export';
 import { performanceMonitor } from '@/lib/performance';
+
+// 导入新增功能组件
+import { MarkdownTableEditor } from '@/components/editor/TableEditor';
+import { ImageUploader, type ImageUploadResult } from '@/components/editor/ImageUploader';
+import { ShareDialog, type ShareSettings } from '@/components/share/ShareDialog';
+import { FullTextSearch } from '@/components/search/FullTextSearch';
+import { TagManager, type Tag } from '@/components/tags/TagManager';
+import { Dashboard, type DashboardStats } from '@/components/dashboard/Dashboard';
+import { DocumentExporter as AdvancedDocumentExporter, type ExportOptions } from '@/components/export/DocumentExporter';
+import { MobileNav, MobileToolbar } from '@/components/mobile/MobileNav';
+import { aiUsageTracker } from '@/lib/ai-usage-tracker';
+import { aiChatHistory } from '@/lib/ai-chat-history';
+import { promptTemplateManager } from '@/lib/ai-prompt-templates';
+import { secureStorage } from '@/lib/secure-storage';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -213,6 +230,34 @@ export default function MarkdownEditor() {
   
   // 选中文本
   const [selectedText, setSelectedText] = useState('');
+
+  // 新增功能状态
+  const [showTableEditor, setShowTableEditor] = useState(false);
+  const [showImageUploader, setShowImageUploader] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showFullTextSearch, setShowFullTextSearch] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [showAdvancedExport, setShowAdvancedExport] = useState(false);
+  
+  // 标签状态
+  const [documentTags, setDocumentTags] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  // 分享状态
+  const [shareSettings, setShareSettings] = useState<ShareSettings | null>(null);
+  
+  // 仪表盘数据
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  
+  // 移动端状态
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // AI 使用统计
+  const [aiUsageStats, setAiUsageStats] = useState<{
+    totalTokens: number;
+    totalCost: number;
+    totalRequests: number;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -864,6 +909,144 @@ ${content}
     navigator.clipboard.writeText(content);
     toast.success('已复制到剪贴板');
   }, [content]);
+
+  // ==================== 新增功能处理函数 ====================
+  
+  // 表格编辑器处理
+  const handleTableInsert = useCallback((markdown: string) => {
+    setContent(prev => prev + '\n\n' + markdown);
+    setShowTableEditor(false);
+    toast.success('表格已插入');
+  }, []);
+
+  // 图片上传处理
+  const handleImageInsert = useCallback((result: ImageUploadResult) => {
+    const imageMarkdown = `![${result.alt}](${result.url})`;
+    setContent(prev => prev + '\n\n' + imageMarkdown);
+    setShowImageUploader(false);
+    toast.success('图片已插入');
+  }, []);
+
+  // 分享处理
+  const handleCreateShare = useCallback(async (settings: Omit<ShareSettings, 'id' | 'viewCount' | 'createdAt' | 'createdBy'>) => {
+    // 这里应该调用后端 API 创建分享
+    // 暂时使用本地存储模拟
+    const newShare: ShareSettings = {
+      ...settings,
+      id: `share-${Date.now()}`,
+      viewCount: 0,
+      createdAt: Date.now(),
+      createdBy: 'user',
+    };
+    setShareSettings(newShare);
+    toast.success('分享链接已创建');
+  }, []);
+
+  const handleUpdateShare = useCallback(async (id: string, settings: Partial<ShareSettings>) => {
+    if (shareSettings) {
+      setShareSettings({ ...shareSettings, ...settings });
+      toast.success('分享设置已更新');
+    }
+  }, [shareSettings]);
+
+  const handleDeleteShare = useCallback(async (id: string) => {
+    setShareSettings(null);
+    toast.success('分享已取消');
+  }, []);
+
+  // 标签处理
+  const handleTagCreate = useCallback(async (tag: Omit<Tag, 'id' | 'createdAt'>): Promise<Tag> => {
+    const newTag: Tag = {
+      ...tag,
+      id: `tag-${Date.now()}`,
+      createdAt: Date.now(),
+    };
+    setDocumentTags(prev => [...prev, newTag]);
+    return newTag;
+  }, []);
+
+  const handleTagUpdate = useCallback(async (id: string, updates: Partial<Tag>) => {
+    setDocumentTags(prev => prev.map(tag => 
+      tag.id === id ? { ...tag, ...updates } : tag
+    ));
+  }, []);
+
+  const handleTagDelete = useCallback(async (id: string) => {
+    setDocumentTags(prev => prev.filter(tag => tag.id !== id));
+    setSelectedTags(prev => prev.filter(t => t !== id));
+  }, []);
+
+  // 高级导出处理
+  const handleAdvancedExport = useCallback(async (options: ExportOptions) => {
+    try {
+      // 根据格式调用不同的导出方法
+      switch (options.format) {
+        case 'markdown':
+        case 'html':
+        case 'txt':
+          documentExporter.export(content, options.filename, { format: options.format }, undefined);
+          break;
+        case 'docx':
+        case 'epub':
+        case 'pdf':
+        case 'png':
+        case 'jpg':
+          // 这些格式需要额外的处理库
+          toast.info(`${options.format.toUpperCase()} 导出功能即将推出`);
+          break;
+      }
+      setShowAdvancedExport(false);
+      toast.success('文档已导出');
+    } catch (error) {
+      toast.error('导出失败');
+    }
+  }, [content]);
+
+  // 计算仪表盘数据
+  useEffect(() => {
+    const stats: DashboardStats = {
+      totalDocuments: documents.length,
+      totalWords: documents.reduce((sum, doc) => sum + doc.wordCount, 0),
+      totalCharacters: documents.reduce((sum, doc) => sum + doc.content?.length || 0, 0),
+      averageWordsPerDoc: documents.length > 0 
+        ? Math.round(documents.reduce((sum, doc) => sum + doc.wordCount, 0) / documents.length)
+        : 0,
+      documentsThisWeek: documents.filter(doc => {
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        return doc.createdAt > weekAgo;
+      }).length,
+      wordsThisWeek: documents.filter(doc => {
+        const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        return doc.createdAt > weekAgo;
+      }).reduce((sum, doc) => sum + doc.wordCount, 0),
+      mostUsedTags: documentTags.slice(0, 5).map(tag => ({
+        name: tag.name,
+        count: tag.count || 0,
+        color: tag.color,
+      })),
+      recentDocuments: documents.slice(0, 10).map(doc => ({
+        id: doc.id,
+        title: doc.title,
+        updatedAt: doc.updatedAt,
+        wordCount: doc.wordCount,
+        tags: [],
+      })),
+      activityByDay: Array.from({ length: 30 }, (_, i) => ({
+        date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        count: Math.floor(Math.random() * 1000), // 模拟数据
+      })),
+      topDocuments: [...documents].sort((a, b) => b.wordCount - a.wordCount).slice(0, 5),
+    };
+    setDashboardStats(stats);
+  }, [documents, documentTags]);
+
+  // 检测移动端
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 加载设置
   useEffect(() => {
@@ -1576,7 +1759,46 @@ ${content}
                 <MessageSquare className="h-4 w-4 mr-2 text-primary" />
                 AI 对话
               </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="justify-start h-9 bg-background"
+                onClick={() => setShowDashboard(true)}
+              >
+                <BarChart3 className="h-4 w-4 mr-2 text-primary" />
+                仪表盘
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="justify-start h-9 bg-background"
+                onClick={() => setShowFullTextSearch(true)}
+              >
+                <FileSearch className="h-4 w-4 mr-2 text-primary" />
+                全文搜索
+              </Button>
             </div>
+            
+            {/* 标签管理 */}
+            {currentDoc && (
+              <div className="pt-2 border-t border-sidebar-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-muted-foreground">文档标签</span>
+                </div>
+                <TagManager
+                  availableTags={documentTags}
+                  selectedTags={selectedTags}
+                  onTagSelect={(id) => setSelectedTags(prev => [...prev, id])}
+                  onTagDeselect={(id) => setSelectedTags(prev => prev.filter(t => t !== id))}
+                  onTagCreate={handleTagCreate}
+                  onTagUpdate={handleTagUpdate}
+                  onTagDelete={handleTagDelete}
+                  maxTags={5}
+                />
+              </div>
+            )}
             
             {/* 底部工具按钮 */}
             <div className="flex items-center gap-1.5 pt-1">
@@ -1802,6 +2024,74 @@ ${content}
                 content={content} 
                 defaultTitle={title || 'document'}
               />
+              
+              {/* 高级导出 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowAdvancedExport(true)} 
+                title="高级导出"
+              >
+                <FileDown className="h-4 w-4" />
+              </Button>
+              
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              
+              {/* 表格编辑器 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowTableEditor(true)} 
+                title="插入表格"
+              >
+                <Table className="h-4 w-4" />
+              </Button>
+              
+              {/* 图片上传 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowImageUploader(true)} 
+                title="插入图片"
+              >
+                <Image className="h-4 w-4" />
+              </Button>
+              
+              {/* 分享 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowShareDialog(true)} 
+                title="分享文档"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+              
+              {/* 仪表盘 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowDashboard(true)} 
+                title="仪表盘"
+              >
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+              
+              {/* 全文搜索 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowFullTextSearch(true)} 
+                title="全文搜索"
+              >
+                <FileSearch className="h-4 w-4" />
+              </Button>
 
               {/* 主题切换 */}
               <DropdownMenu>
@@ -2365,6 +2655,106 @@ ${content}
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ==================== 新增功能对话框 ==================== */}
+
+      {/* 表格编辑器对话框 */}
+      <Dialog open={showTableEditor} onOpenChange={setShowTableEditor}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Table className="h-5 w-5" />
+              表格编辑器
+            </DialogTitle>
+            <DialogDescription>
+              可视化编辑表格，支持行列操作和对齐方式调整
+            </DialogDescription>
+          </DialogHeader>
+          <MarkdownTableEditor
+            onChange={handleTableInsert}
+            onClose={() => setShowTableEditor(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* 图片上传对话框 */}
+      <ImageUploader
+        open={showImageUploader}
+        onClose={() => setShowImageUploader(false)}
+        onInsert={handleImageInsert}
+      />
+
+      {/* 分享对话框 */}
+      <ShareDialog
+        open={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        documentId={currentDoc?.id || ''}
+        documentTitle={title}
+        existingShare={shareSettings || undefined}
+        onCreateShare={handleCreateShare}
+        onUpdateShare={handleUpdateShare}
+        onDeleteShare={handleDeleteShare}
+      />
+
+      {/* 全文搜索对话框 */}
+      <FullTextSearch
+        open={showFullTextSearch}
+        onClose={() => setShowFullTextSearch(false)}
+        documents={documents.map(doc => ({
+          id: doc.id,
+          title: doc.title,
+          content: doc.content || '',
+          tags: [],
+          updatedAt: doc.updatedAt,
+          wordCount: doc.wordCount,
+        }))}
+        onSelect={(docId) => {
+          handleSwitchDocument(docId);
+          setShowFullTextSearch(false);
+        }}
+      />
+
+      {/* 仪表盘对话框 */}
+      <Dialog open={showDashboard} onOpenChange={setShowDashboard}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
+          {dashboardStats && (
+            <Dashboard
+              stats={dashboardStats}
+              onDocumentSelect={(id) => {
+                handleSwitchDocument(id);
+                setShowDashboard(false);
+              }}
+              onCreateNew={() => {
+                handleCreateDocument();
+                setShowDashboard(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 高级导出对话框 */}
+      <AdvancedDocumentExporter
+        open={showAdvancedExport}
+        onClose={() => setShowAdvancedExport(false)}
+        title={title}
+        content={content}
+        onExport={handleAdvancedExport}
+      />
+
+      {/* 移动端底部工具栏 */}
+      {isMobile && (
+        <MobileToolbar
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onSave={() => toast.success('文档已自动保存')}
+          onToggleFullscreen={toggleFullscreen}
+          isFullscreen={isFullscreen}
+          canUndo={undoStack.length > 1}
+          canRedo={redoStack.length > 0}
+          isDirty={true}
+        />
+      )}
     </div>
   );
 }

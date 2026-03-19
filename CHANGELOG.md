@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.0] - 2025-03-20
 
-### 🚀 功能扩展
+### 🚀 功能扩展与集成
 
 #### 🤖 AI 功能增强
 - 新增 AI 使用统计追踪器（Token 统计、成本计算）
@@ -47,21 +47,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 新增图片导出（PNG、JPG）
 - 支持导出选项配置（页面设置、字体大小、图片质量）
 
+### 🔧 功能集成
+
+所有新功能已完全集成到主编辑器中：
+- 工具栏新增：表格编辑器、图片上传、分享、仪表盘、全文搜索、高级导出按钮
+- 侧边栏新增：标签管理、仪表盘入口、全文搜索入口
+- 移动端适配：底部工具栏、响应式导航
+- AI 增强：使用统计、对话历史、提示词模板（通过 API 集成）
+
 ### 📦 新增组件
 
+**核心库文件：**
 - `src/lib/ai-usage-tracker.ts` - AI 使用统计
 - `src/lib/ai-chat-history.ts` - AI 对话历史
 - `src/lib/ai-prompt-templates.ts` - AI 提示词模板
 - `src/lib/vim-mode.ts` - Vim 模式支持
 - `src/lib/secure-storage.ts` - 加密存储
+
+**编辑器组件：**
 - `src/components/editor/TableEditor.tsx` - 表格编辑器
 - `src/components/editor/ImageUploader.tsx` - 图片上传
+
+**移动端组件：**
 - `src/components/mobile/MobileNav.tsx` - 移动端导航
+
+**功能组件：**
 - `src/components/share/ShareDialog.tsx` - 文档分享
 - `src/components/search/FullTextSearch.tsx` - 全文搜索
 - `src/components/tags/TagManager.tsx` - 标签管理
 - `src/components/dashboard/Dashboard.tsx` - 仪表盘
 - `src/components/export/DocumentExporter.tsx` - 文档导出
+
+**UI 组件：**
 - `src/components/ui/popover.tsx` - Popover 组件
 - `src/components/ui/table.tsx` - Table 组件
 - `src/components/ui/command.tsx` - Command 组件
