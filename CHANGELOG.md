@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-03-20
+
+### 🚀 功能扩展
+
+#### 🤖 AI 功能增强
+- 新增 AI 使用统计追踪器（Token 统计、成本计算）
+- 新增 AI 对话历史管理器（会话持久化、历史搜索）
+- 新增 AI 提示词模板库（20+ 内置模板、自定义模板支持）
+- 支持多模型定价计算（OpenAI、Claude、DeepSeek、Kimi、豆包）
+
+#### 📝 编辑器优化
+- 新增可视化表格编辑器（行列操作、对齐方式调整）
+- 新增图片上传组件（拖拽上传、URL 导入、粘贴上传）
+- 新增 Vim 模式支持（常用 Vim 命令、模式指示器）
+
+#### 📱 移动端适配
+- 新增移动端响应式导航组件
+- 新增移动端底部工具栏
+- 新增手势操作支持（滑动、双击、长按）
+
+#### 🔗 协作与分享
+- 新增文档分享功能（公开/私密分享、密码保护）
+- 支持分享有效期设置
+- 支持访客权限控制（下载、复制）
+
+#### 🔍 高级功能
+- 新增全文搜索组件（内容搜索、高级过滤、搜索历史）
+- 新增标签管理系统（标签创建、颜色自定义、标签统计）
+- 新增仪表盘组件（统计数据、活动热力图、字数排行）
+
+#### 🔒 数据安全
+- 新增密码保护功能（Web Crypto API 加密）
+- 新增加密存储支持（AES-GCM 加密算法）
+- 新增密码强度检测
+- 新增随机密码生成器
+
+#### 📤 导出扩展
+- 新增多格式导出支持（Markdown、HTML、TXT）
+- 新增文档格式导出（DOCX、EPUB、PDF）
+- 新增图片导出（PNG、JPG）
+- 支持导出选项配置（页面设置、字体大小、图片质量）
+
+### 📦 新增组件
+
+- `src/lib/ai-usage-tracker.ts` - AI 使用统计
+- `src/lib/ai-chat-history.ts` - AI 对话历史
+- `src/lib/ai-prompt-templates.ts` - AI 提示词模板
+- `src/lib/vim-mode.ts` - Vim 模式支持
+- `src/lib/secure-storage.ts` - 加密存储
+- `src/components/editor/TableEditor.tsx` - 表格编辑器
+- `src/components/editor/ImageUploader.tsx` - 图片上传
+- `src/components/mobile/MobileNav.tsx` - 移动端导航
+- `src/components/share/ShareDialog.tsx` - 文档分享
+- `src/components/search/FullTextSearch.tsx` - 全文搜索
+- `src/components/tags/TagManager.tsx` - 标签管理
+- `src/components/dashboard/Dashboard.tsx` - 仪表盘
+- `src/components/export/DocumentExporter.tsx` - 文档导出
+- `src/components/ui/popover.tsx` - Popover 组件
+- `src/components/ui/table.tsx` - Table 组件
+- `src/components/ui/command.tsx` - Command 组件
+
 ## [1.4.0] - 2025-03-19
 
 ### 🎨 UI 设计优化
