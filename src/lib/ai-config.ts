@@ -24,6 +24,9 @@ export const providerPresets: Record<AIProvider, {
   endpoint: string;
   models: string[];
   defaultModel: string;
+  features?: string[];
+  contextWindow?: number;
+  pricing?: { input: number; output: number };
 }> = {
   doubao: {
     name: '豆包',
@@ -35,6 +38,9 @@ export const providerPresets: Record<AIProvider, {
       'doubao-1-5-pro-256k-240115',
     ],
     defaultModel: 'doubao-seed-1-6-flash-250615',
+    features: ['chat', 'streaming', 'function-calling'],
+    contextWindow: 256000,
+    pricing: { input: 0.3, output: 0.6 },
   },
   deepseek: {
     name: 'DeepSeek',
@@ -45,6 +51,9 @@ export const providerPresets: Record<AIProvider, {
       'deepseek-reasoner',
     ],
     defaultModel: 'deepseek-chat',
+    features: ['chat', 'streaming', 'function-calling', 'reasoning'],
+    contextWindow: 128000,
+    pricing: { input: 0.14, output: 0.28 },
   },
   openai: {
     name: 'OpenAI',
@@ -57,6 +66,9 @@ export const providerPresets: Record<AIProvider, {
       'gpt-3.5-turbo',
     ],
     defaultModel: 'gpt-4o-mini',
+    features: ['chat', 'streaming', 'function-calling', 'vision'],
+    contextWindow: 128000,
+    pricing: { input: 2.5, output: 10 },
   },
   kimi: {
     name: 'Kimi (月之暗面)',
@@ -67,6 +79,109 @@ export const providerPresets: Record<AIProvider, {
       'moonshot-v1-128k',
     ],
     defaultModel: 'moonshot-v1-8k',
+    features: ['chat', 'streaming', 'long-context'],
+    contextWindow: 128000,
+    pricing: { input: 0.5, output: 0.5 },
+  },
+  claude: {
+    name: 'Claude (Anthropic)',
+    endpoint: 'https://api.anthropic.com/v1',
+    models: [
+      'claude-3-5-sonnet-20241022',
+      'claude-3-5-haiku-20241022',
+      'claude-3-opus-20240229',
+      'claude-3-sonnet-20240229',
+      'claude-3-haiku-20240307',
+    ],
+    defaultModel: 'claude-3-5-sonnet-20241022',
+    features: ['chat', 'streaming', 'function-calling', 'vision', 'artifacts'],
+    contextWindow: 200000,
+    pricing: { input: 3, output: 15 },
+  },
+  gemini: {
+    name: 'Gemini (Google)',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta',
+    models: [
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b',
+    ],
+    defaultModel: 'gemini-2.0-flash',
+    features: ['chat', 'streaming', 'function-calling', 'vision', 'long-context'],
+    contextWindow: 1000000,
+    pricing: { input: 0.075, output: 0.3 },
+  },
+  wenxin: {
+    name: '文心一言 (百度)',
+    endpoint: 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop',
+    models: [
+      'ernie-4.0-8k',
+      'ernie-4.0-turbo-8k',
+      'ernie-3.5-8k',
+      'ernie-speed-8k',
+    ],
+    defaultModel: 'ernie-4.0-turbo-8k',
+    features: ['chat', 'streaming', 'function-calling'],
+    contextWindow: 8000,
+    pricing: { input: 0.12, output: 0.12 },
+  },
+  qwen: {
+    name: '通义千问 (阿里)',
+    endpoint: 'https://dashscope.aliyuncs.com/api/v1',
+    models: [
+      'qwen-turbo',
+      'qwen-plus',
+      'qwen-max',
+      'qwen-max-longcontext',
+      'qwen-vl-max',
+    ],
+    defaultModel: 'qwen-plus',
+    features: ['chat', 'streaming', 'function-calling', 'vision', 'long-context'],
+    contextWindow: 32000,
+    pricing: { input: 0.4, output: 0.4 },
+  },
+  zhipu: {
+    name: '智谱 AI',
+    endpoint: 'https://open.bigmodel.cn/api/paas/v4',
+    models: [
+      'glm-4-plus',
+      'glm-4-0520',
+      'glm-4-air',
+      'glm-4-flash',
+    ],
+    defaultModel: 'glm-4-flash',
+    features: ['chat', 'streaming', 'function-calling'],
+    contextWindow: 128000,
+    pricing: { input: 0.1, output: 0.1 },
+  },
+  minimax: {
+    name: 'MiniMax',
+    endpoint: 'https://api.minimax.chat/v1',
+    models: [
+      'abab6.5s-chat',
+      'abab6.5g-chat',
+      'abab6.5t-chat',
+      'abab5.5-chat',
+    ],
+    defaultModel: 'abab6.5s-chat',
+    features: ['chat', 'streaming', 'function-calling'],
+    contextWindow: 245000,
+    pricing: { input: 0.1, output: 0.1 },
+  },
+  baichuan: {
+    name: '百川智能',
+    endpoint: 'https://api.baichuan-ai.com/v1',
+    models: [
+      'Baichuan4',
+      'Baichuan3-Turbo',
+      'Baichuan3-Turbo-128k',
+      'Baichuan2-Turbo',
+    ],
+    defaultModel: 'Baichuan4',
+    features: ['chat', 'streaming', 'function-calling'],
+    contextWindow: 128000,
+    pricing: { input: 0.1, output: 0.1 },
   },
   custom: {
     name: '自定义',

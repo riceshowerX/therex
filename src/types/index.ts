@@ -99,7 +99,9 @@ export interface DocumentVersion {
 /**
  * AI 提供商类型
  */
-export type AIProvider = 'doubao' | 'deepseek' | 'openai' | 'kimi' | 'custom';
+export type AIProvider = 
+  | 'doubao' | 'deepseek' | 'openai' | 'kimi' | 'custom'
+  | 'claude' | 'gemini' | 'wenxin' | 'qwen' | 'zhipu' | 'minimax' | 'baichuan';
 
 /**
  * AI 配置接口

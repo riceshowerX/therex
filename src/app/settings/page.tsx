@@ -217,11 +217,69 @@ export default function SettingsPage() {
                     <SelectValue placeholder="选择 AI 提供商" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(providerPresets).map(([key, preset]) => (
-                      <SelectItem key={key} value={key}>
-                        {preset.name}
-                      </SelectItem>
-                    ))}
+                    {/* 国内主流 */}
+                    <SelectItem value="doubao" disabled={false}>
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> 豆包 (字节跳动)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="deepseek">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> DeepSeek
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="kimi">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> Kimi (月之暗面)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="wenxin">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> 文心一言 (百度)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="qwen">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> 通义千问 (阿里)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="zhipu">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> 智谱 AI
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="minimax">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> MiniMax
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="baichuan">
+                      <span className="flex items-center gap-2">
+                        <span>🇨🇳</span> 百川智能
+                      </span>
+                    </SelectItem>
+                    {/* 国际主流 */}
+                    <SelectItem value="openai">
+                      <span className="flex items-center gap-2">
+                        <span>🌍</span> OpenAI (GPT)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="claude">
+                      <span className="flex items-center gap-2">
+                        <span>🌍</span> Claude (Anthropic)
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="gemini">
+                      <span className="flex items-center gap-2">
+                        <span>🌍</span> Gemini (Google)
+                      </span>
+                    </SelectItem>
+                    {/* 自定义 */}
+                    <SelectItem value="custom">
+                      <span className="flex items-center gap-2">
+                        <span>⚙️</span> 自定义 OpenAI 兼容 API
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -266,6 +324,13 @@ export default function SettingsPage() {
                   {config.provider === 'deepseek' && '在 DeepSeek 官网获取 API Key'}
                   {config.provider === 'openai' && '在 OpenAI 官网获取 API Key'}
                   {config.provider === 'kimi' && '在月之暗面开放平台获取 API Key'}
+                  {config.provider === 'claude' && '在 Anthropic 官网获取 API Key'}
+                  {config.provider === 'gemini' && '在 Google AI Studio 获取 API Key'}
+                  {config.provider === 'wenxin' && '在百度智能云获取 API Key'}
+                  {config.provider === 'qwen' && '在阿里云 DashScope 获取 API Key'}
+                  {config.provider === 'zhipu' && '在智谱开放平台获取 API Key'}
+                  {config.provider === 'minimax' && '在 MiniMax 开放平台获取 API Key'}
+                  {config.provider === 'baichuan' && '在百川智能官网获取 API Key'}
                   {config.provider === 'custom' && '输入您的自定义 API Key'}
                 </p>
               </div>
@@ -662,13 +727,31 @@ export default function SettingsPage() {
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="font-medium mb-2">支持的 AI 服务</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• 豆包 (字节跳动)</li>
-                    <li>• DeepSeek</li>
-                    <li>• OpenAI (GPT)</li>
-                    <li>• Kimi (月之暗面)</li>
-                    <li>• 自定义 OpenAI 兼容 API</li>
-                  </ul>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <div>
+                      <span className="font-medium text-foreground">国内服务：</span>
+                      <ul className="mt-1 space-y-0.5">
+                        <li>• 豆包 (字节跳动)</li>
+                        <li>• DeepSeek</li>
+                        <li>• Kimi (月之暗面)</li>
+                        <li>• 文心一言 (百度)</li>
+                        <li>• 通义千问 (阿里)</li>
+                        <li>• 智谱 AI、MiniMax、百川智能</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground">国际服务：</span>
+                      <ul className="mt-1 space-y-0.5">
+                        <li>• OpenAI (GPT-4)</li>
+                        <li>• Claude (Anthropic)</li>
+                        <li>• Gemini (Google)</li>
+                      </ul>
+                    </div>
+                    <div className="pt-1">
+                      <span className="font-medium text-foreground">自定义：</span>
+                      <span> OpenAI 兼容 API</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>

@@ -112,6 +112,7 @@ import {
   Users,
   BarChart3,
   Lock,
+  Puzzle,
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
@@ -152,6 +153,7 @@ import { MobileActionBar, useResponsive, useGestures } from '@/components/mobile
 import { shareManager } from '@/lib/share';
 import { cloudSyncManager, type SyncStatus } from '@/lib/sync';
 import { extendedProviderPresets, type ExtendedAIProvider } from '@/lib/ai-providers';
+import { PluginMarketPanel } from '@/components/plugins/PluginMarketPanel';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -279,6 +281,9 @@ export default function MarkdownEditor() {
   
   // 主题市场
   const [showThemeMarket, setShowThemeMarket] = useState(false);
+  
+  // 插件管理
+  const [showPluginMarket, setShowPluginMarket] = useState(false);
   
   // 云端同步
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -2191,6 +2196,17 @@ ${content}
                 <Palette className="h-4 w-4" />
               </Button>
 
+              {/* 插件管理 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowPluginMarket(true)} 
+                title="插件管理"
+              >
+                <Puzzle className="h-4 w-4" />
+              </Button>
+
               {/* 云端同步状态 */}
               {syncStatus !== 'idle' && (
                 <Badge variant={syncStatus === 'syncing' ? 'secondary' : syncStatus === 'success' ? 'default' : 'destructive'} className="text-xs">
@@ -2850,6 +2866,12 @@ ${content}
       <ThemeMarket
         open={showThemeMarket}
         onClose={() => setShowThemeMarket(false)}
+      />
+
+      {/* 插件管理面板 */}
+      <PluginMarketPanel
+        open={showPluginMarket}
+        onClose={() => setShowPluginMarket(false)}
       />
 
       {/* 移动端底部工具栏 */}
