@@ -2722,6 +2722,9 @@ ${content}
       {/* 仪表盘对话框 */}
       <Dialog open={showDashboard} onOpenChange={setShowDashboard}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>仪表盘</DialogTitle>
+          </DialogHeader>
           {dashboardStats && (
             <Dashboard
               stats={dashboardStats}
