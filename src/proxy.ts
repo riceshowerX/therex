@@ -55,7 +55,7 @@ const getSecurityHeaders = (isDev: boolean) => [
   }]),
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
   const isDev = process.env.NODE_ENV === 'development';
 
