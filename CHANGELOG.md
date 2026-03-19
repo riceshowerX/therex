@@ -5,6 +5,106 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-03-21
+
+### 🚀 重大功能更新
+
+#### 🤝 实时协作编辑
+- 新增协作管理器（WebSocket 连接、操作同步）
+- 支持多用户同时编辑文档
+- 实时光标位置显示
+- 选区高亮共享
+- 协作者在线状态指示
+- 用户颜色标识
+
+#### 🔗 文档分享增强
+- 分享管理器（创建、更新、删除分享）
+- 访客统计功能（查看次数、访问时间）
+- 分享链接生成与复制
+- 密码保护支持
+- 有效期设置
+- 权限控制（下载、复制）
+
+#### 📱 移动端优化
+- 手势操作 Hook（滑动、双击、长按、双指缩放）
+- 触摸涟漪反馈组件
+- 移动端底部操作栏
+- 响应式布局 Hook
+- 安全区域支持（刘海屏适配）
+- 拖拽排序功能
+
+#### 🤖 AI 模型扩展
+- 新增 Claude 支持（claude-3-5-sonnet 等）
+- 新增 Gemini 支持（gemini-2.0-flash 等）
+- 新增文心一言支持（ernie-4.0 等）
+- 新增通义千问支持（qwen-max 等）
+- 新增智谱 AI 支持（glm-4-plus 等）
+- 新增 MiniMax 支持（abab6.5s 等）
+- 新增百川智能支持（Baichuan4 等）
+- 模型能力排名（编程、写作、推理）
+- 成本计算器
+- 模型选择建议
+
+#### 🧩 插件系统
+- 插件管理器（注册、激活、停用、卸载）
+- 插件 API（存储、编辑器、命令、通知、AI、网络、剪贴板）
+- 权限系统（storage、network、clipboard 等）
+- 生命周期钩子（activate、deactivate、onSettingsChange）
+- 命令注册与执行
+- 插件设置管理
+
+#### 🎨 主题市场
+- 10+ 内置主题预设
+- 主题分类（浅色、深色、彩色、极简）
+- 一键切换主题
+- 自定义 CSS 变量
+- 主题预览功能
+
+#### ☁️ 云端同步增强
+- 离线数据存储
+- 自动同步队列
+- 冲突检测与解决
+- 增量同步支持
+- 同步状态指示器
+- 网络状态监听
+
+### 📦 新增文件
+
+**协作功能：**
+- `src/lib/collaboration/types.ts` - 协作类型定义
+- `src/lib/collaboration/manager.ts` - 协作管理器
+- `src/lib/collaboration/index.ts` - 导出文件
+- `src/components/collaboration/CollaborationPanel.tsx` - 协作面板组件
+
+**分享功能：**
+- `src/lib/share/manager.ts` - 分享管理器
+- `src/lib/share/index.ts` - 导出文件
+
+**移动端增强：**
+- `src/components/mobile/MobileEnhanced.tsx` - 移动端增强组件
+
+**AI 扩展：**
+- `src/lib/ai-providers.ts` - AI 模型扩展支持
+
+**插件系统：**
+- `src/lib/plugins/manager.ts` - 插件管理器
+- `src/lib/plugins/index.ts` - 导出文件
+
+**主题市场：**
+- `src/lib/themes/market.tsx` - 主题市场组件
+- `src/lib/themes/index.ts` - 导出文件
+
+**云端同步：**
+- `src/lib/sync/cloud-sync.ts` - 云端同步管理器
+- `src/lib/sync/index.ts` - 导出文件
+
+### 🔧 功能集成
+
+所有新功能已集成到主编辑器：
+- 工具栏新增：协作按钮、主题市场按钮、同步状态指示器
+- 状态管理：协作状态、主题状态、同步状态
+- 事件监听：协作事件、同步状态变化
+
 ## [1.5.0] - 2025-03-20
 
 ### 🚀 功能扩展与集成

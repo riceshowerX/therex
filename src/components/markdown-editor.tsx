@@ -108,6 +108,8 @@ import {
   Send,
   Plus,
   Share2,
+  Palette,
+  Users,
   BarChart3,
   Lock,
 } from 'lucide-react';
@@ -142,6 +144,14 @@ import { aiUsageTracker } from '@/lib/ai-usage-tracker';
 import { aiChatHistory } from '@/lib/ai-chat-history';
 import { promptTemplateManager } from '@/lib/ai-prompt-templates';
 import { secureStorage } from '@/lib/secure-storage';
+
+// 导入 v1.6.0 新增功能
+import { CollaborationPanel, CollaborationIndicator } from '@/components/collaboration/CollaborationPanel';
+import { ThemeMarket } from '@/lib/themes/market';
+import { MobileActionBar, useResponsive, useGestures } from '@/components/mobile/MobileEnhanced';
+import { shareManager } from '@/lib/share';
+import { cloudSyncManager, type SyncStatus } from '@/lib/sync';
+import { extendedProviderPresets, type ExtendedAIProvider } from '@/lib/ai-providers';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -261,6 +271,22 @@ export default function MarkdownEditor() {
     totalRequests: number;
   } | null>(null);
 
+  // v1.6.0 新增状态
+  // 实时协作
+  const [showCollaboration, setShowCollaboration] = useState(false);
+  const [isCollaborating, setIsCollaborating] = useState(false);
+  const [collaboratorCount, setCollaboratorCount] = useState(0);
+  
+  // 主题市场
+  const [showThemeMarket, setShowThemeMarket] = useState(false);
+  
+  // 云端同步
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  
+  // 响应式布局
+  const responsive = useResponsive();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -285,6 +311,16 @@ export default function MarkdownEditor() {
     } else {
       handleCreateDocument();
     }
+
+    // 初始化云端同步状态监听
+    const unsubSync = cloudSyncManager.onStatusChange((status) => {
+      setSyncStatus(status);
+      setPendingSyncCount(cloudSyncManager.getPendingCount());
+    });
+
+    return () => {
+      unsubSync();
+    };
   }, []);
 
   // 自动保存版本（每 5 分钟）
@@ -2137,6 +2173,34 @@ ${content}
 
               <Separator orientation="vertical" className="h-6 mx-1" />
 
+              {/* 实时协作 */}
+              <CollaborationIndicator
+                isConnected={isCollaborating}
+                collaboratorCount={collaboratorCount}
+                onClick={() => setShowCollaboration(true)}
+              />
+
+              {/* 主题市场 */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 hover:bg-accent" 
+                onClick={() => setShowThemeMarket(true)} 
+                title="主题市场"
+              >
+                <Palette className="h-4 w-4" />
+              </Button>
+
+              {/* 云端同步状态 */}
+              {syncStatus !== 'idle' && (
+                <Badge variant={syncStatus === 'syncing' ? 'secondary' : syncStatus === 'success' ? 'default' : 'destructive'} className="text-xs">
+                  {syncStatus === 'syncing' ? '同步中...' : syncStatus === 'success' ? '已同步' : '同步失败'}
+                  {pendingSyncCount > 0 && ` (${pendingSyncCount})`}
+                </Badge>
+              )}
+
+              <Separator orientation="vertical" className="h-6 mx-1" />
+
               {/* 其他功能 */}
               <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={copyContent} title="复制内容">
                 <Copy className="h-4 w-4" />
@@ -2764,6 +2828,28 @@ ${content}
         title={title}
         content={content}
         onExport={handleAdvancedExport}
+      />
+
+      {/* ==================== v1.6.0 新增功能对话框 ==================== */}
+
+      {/* 实时协作对话框 */}
+      <CollaborationPanel
+        open={showCollaboration}
+        onClose={() => setShowCollaboration(false)}
+        documentId={currentDoc?.id || ''}
+        documentTitle={title}
+        onCollaboratorCursor={(userId, cursor) => {
+          console.log('Collaborator cursor:', userId, cursor);
+        }}
+        onCollaboratorSelection={(userId, selection) => {
+          console.log('Collaborator selection:', userId, selection);
+        }}
+      />
+
+      {/* 主题市场对话框 */}
+      <ThemeMarket
+        open={showThemeMarket}
+        onClose={() => setShowThemeMarket(false)}
       />
 
       {/* 移动端底部工具栏 */}
