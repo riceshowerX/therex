@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type ExportFormat = 'markdown' | 'html' | 'txt' | 'docx' | 'epub' | 'pdf' | 'png' | 'jpg';
+export type ExportFormat = 'markdown' | 'html' | 'txt' | 'docx' | 'epub' | 'pdf' | 'png' | 'jpg' | 'json';
 
 export interface ExportOptions {
   format: ExportFormat;
@@ -94,6 +94,7 @@ export function DocumentExporter({
     pdf: { icon: <FileText className="h-4 w-4" />, label: 'PDF', extensions: ['.pdf'] },
     png: { icon: <FileImage className="h-4 w-4" />, label: 'PNG 图片', extensions: ['.png'] },
     jpg: { icon: <FileImage className="h-4 w-4" />, label: 'JPG 图片', extensions: ['.jpg'] },
+    json: { icon: <FileCode className="h-4 w-4" />, label: 'JSON', extensions: ['.json'] },
   };
   
   // 获取文件扩展名

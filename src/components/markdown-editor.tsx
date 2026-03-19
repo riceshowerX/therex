@@ -120,7 +120,6 @@ import { MarkdownPreview } from '@/components/markdown-preview';
 import { DocumentStats } from '@/components/document-stats';
 import { ShortcutPanel } from '@/components/shortcut-panel';
 import { AutoSaveStatus } from '@/components/auto-save-status';
-import { ExportDialog } from '@/components/export-dialog';
 import { EditorToolbar } from '@/components/editor-toolbar';
 
 // 导入新的增强组件
@@ -991,6 +990,29 @@ ${content}
         case 'txt':
           documentExporter.export(content, options.filename, { format: options.format }, undefined);
           break;
+        case 'json':
+          // JSON 导出包含元数据
+          const jsonData = {
+            title: title || 'document',
+            content,
+            metadata: options.includeMetadata ? {
+              author: currentDoc?.createdAt ? new Date(currentDoc.createdAt).toISOString() : undefined,
+              createdAt: currentDoc?.createdAt,
+              updatedAt: Date.now(),
+              wordCount: wordCount.words,
+              characterCount: wordCount.chars,
+            } : undefined,
+          };
+          const jsonBlob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+          const jsonUrl = URL.createObjectURL(jsonBlob);
+          const jsonLink = document.createElement('a');
+          jsonLink.href = jsonUrl;
+          jsonLink.download = options.filename;
+          document.body.appendChild(jsonLink);
+          jsonLink.click();
+          document.body.removeChild(jsonLink);
+          URL.revokeObjectURL(jsonUrl);
+          break;
         case 'docx':
         case 'epub':
         case 'pdf':
@@ -1005,7 +1027,7 @@ ${content}
     } catch (error) {
       toast.error('导出失败');
     }
-  }, [content]);
+  }, [content, title, currentDoc, wordCount]);
 
   // 计算仪表盘数据
   useEffect(() => {
@@ -2025,20 +2047,14 @@ ${content}
               <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-accent" onClick={importFile} title="导入文件">
                 <Upload className="h-4 w-4" />
               </Button>
-              <ExportDialog 
-                content={content} 
-                defaultTitle={title || 'document'}
-              />
-              
-              {/* 高级导出 */}
               <Button 
                 variant="ghost" 
                 size="icon" 
                 className="h-9 w-9 hover:bg-accent" 
                 onClick={() => setShowAdvancedExport(true)} 
-                title="高级导出"
+                title="导出文档"
               >
-                <FileDown className="h-4 w-4" />
+                <Download className="h-4 w-4" />
               </Button>
               
               <Separator orientation="vertical" className="h-6 mx-1" />
