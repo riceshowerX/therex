@@ -58,119 +58,126 @@
 /*
  * Therex Editor - 专注写作，AI赋能
  * 设计理念：清晨书房 - 安静、舒适、专注
- * 主色调：温暖的翠绿色，象征创作与生长
+ * 
+ * 色彩哲学：
+ * - 整体采用温暖的米黄基调，营造纸张质感
+ * - 主色调使用低饱和度的暖橄榄绿，象征自然与生长
+ * - 避免高饱和度的"数字感"颜色，追求"手写纸笔"的温度
  */
 
 :root {
   --radius: 0.5rem;
   
-  /* 主背景 - 温暖的米白色 */
-  --background: oklch(0.985 0.002 90);
-  --foreground: oklch(0.2 0.01 90);
+  /* 主背景 - 温暖的米白色，像旧纸张 */
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.22 0.01 85);
   
-  /* 卡片 - 纯净的白色 */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.01 90);
+  /* 卡片 - 纯净的奶白色 */
+  --card: oklch(0.995 0.003 85);
+  --card-foreground: oklch(0.22 0.01 85);
   
   /* 弹出层 */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.01 90);
+  --popover: oklch(0.995 0.003 85);
+  --popover-foreground: oklch(0.22 0.01 85);
   
-  /* 主色调 - 翠绿色，象征创作与生长 */
-  --primary: oklch(0.55 0.15 160);
-  --primary-foreground: oklch(0.98 0 0);
+  /* 主色调 - 暖橄榄绿，自然、温和、专注
+   * Hue 135 介于黄绿之间，是温暖的植物色调
+   * Chroma 0.08 低饱和度，避免"数字感"，更像墨水或植物染料
+   */
+  --primary: oklch(0.52 0.08 135);
+  --primary-foreground: oklch(0.98 0.005 85);
   
-  /* 次要色 */
-  --secondary: oklch(0.96 0.005 90);
-  --secondary-foreground: oklch(0.25 0.01 90);
+  /* 次要色 - 浅米色 */
+  --secondary: oklch(0.965 0.008 85);
+  --secondary-foreground: oklch(0.28 0.01 85);
   
-  /* 静音色 - 用于次要文本 */
-  --muted: oklch(0.96 0.005 90);
-  --muted-foreground: oklch(0.5 0.01 90);
+  /* 静音色 - 用于次要文本和背景 */
+  --muted: oklch(0.965 0.006 85);
+  --muted-foreground: oklch(0.48 0.01 85);
   
-  /* 强调色 - 浅绿背景 */
-  --accent: oklch(0.95 0.02 160);
-  --accent-foreground: oklch(0.25 0.02 160);
+  /* 强调色 - 淡绿背景，用于高亮和选中状态 */
+  --accent: oklch(0.94 0.015 135);
+  --accent-foreground: oklch(0.28 0.02 135);
   
-  /* 警告色 - 琥珀色 */
-  --destructive: oklch(0.6 0.18 25);
+  /* 警告色 - 暖琥珀色，而非刺眼的红 */
+  --destructive: oklch(0.58 0.16 30);
   
-  /* 边框与输入 */
-  --border: oklch(0.9 0.005 90);
-  --input: oklch(0.9 0.005 90);
-  --ring: oklch(0.55 0.15 160);
+  /* 边框与输入 - 柔和的分界线 */
+  --border: oklch(0.91 0.006 85);
+  --input: oklch(0.91 0.006 85);
+  --ring: oklch(0.52 0.08 135);
   
-  /* 图表色系 */
-  --chart-1: oklch(0.55 0.15 160);
-  --chart-2: oklch(0.6 0.12 180);
-  --chart-3: oklch(0.65 0.1 200);
-  --chart-4: oklch(0.6 0.15 140);
-  --chart-5: oklch(0.55 0.12 120);
+  /* 图表色系 - 柔和的自然色系 */
+  --chart-1: oklch(0.52 0.08 135);  /* 主橄榄绿 */
+  --chart-2: oklch(0.55 0.07 160);  /* 青绿 */
+  --chart-3: oklch(0.58 0.06 45);   /* 琥珀 */
+  --chart-4: oklch(0.50 0.06 200);  /* 青蓝 */
+  --chart-5: oklch(0.55 0.05 320);  /* 玫瑰 */
   
   /* 侧边栏 */
-  --sidebar: oklch(0.98 0.003 90);
-  --sidebar-foreground: oklch(0.2 0.01 90);
-  --sidebar-primary: oklch(0.55 0.15 160);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.02 160);
-  --sidebar-accent-foreground: oklch(0.25 0.02 160);
-  --sidebar-border: oklch(0.91 0.005 90);
-  --sidebar-ring: oklch(0.55 0.15 160);
+  --sidebar: oklch(0.975 0.006 85);
+  --sidebar-foreground: oklch(0.22 0.01 85);
+  --sidebar-primary: oklch(0.52 0.08 135);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-accent: oklch(0.93 0.012 135);
+  --sidebar-accent-foreground: oklch(0.28 0.02 135);
+  --sidebar-border: oklch(0.90 0.006 85);
+  --sidebar-ring: oklch(0.52 0.08 135);
 }
 
 .dark {
-  /* 深色模式 - 深邃但舒适的深灰蓝 */
-  --background: oklch(0.15 0.01 260);
-  --foreground: oklch(0.95 0.005 90);
+  /* 深色模式 - 温暖的深棕灰，而非冷蓝黑 */
+  --background: oklch(0.18 0.008 70);
+  --foreground: oklch(0.94 0.005 70);
   
   /* 卡片 - 略浅的深色 */
-  --card: oklch(0.2 0.01 260);
-  --card-foreground: oklch(0.95 0.005 90);
+  --card: oklch(0.22 0.008 70);
+  --card-foreground: oklch(0.94 0.005 70);
   
   /* 弹出层 */
-  --popover: oklch(0.2 0.01 260);
-  --popover-foreground: oklch(0.95 0.005 90);
+  --popover: oklch(0.22 0.008 70);
+  --popover-foreground: oklch(0.94 0.005 70);
   
-  /* 主色调 - 明亮的翠绿 */
-  --primary: oklch(0.7 0.15 160);
-  --primary-foreground: oklch(0.15 0.01 260);
+  /* 主色调 - 明亮的暖绿，在深色背景上更醒目 */
+  --primary: oklch(0.68 0.10 135);
+  --primary-foreground: oklch(0.18 0.008 70);
   
   /* 次要色 */
-  --secondary: oklch(0.26 0.01 260);
-  --secondary-foreground: oklch(0.95 0.005 90);
+  --secondary: oklch(0.28 0.008 70);
+  --secondary-foreground: oklch(0.94 0.005 70);
   
   /* 静音色 */
-  --muted: oklch(0.26 0.01 260);
-  --muted-foreground: oklch(0.65 0.01 90);
+  --muted: oklch(0.28 0.008 70);
+  --muted-foreground: oklch(0.62 0.01 70);
   
   /* 强调色 */
-  --accent: oklch(0.3 0.02 160);
-  --accent-foreground: oklch(0.95 0.005 90);
+  --accent: oklch(0.32 0.015 135);
+  --accent-foreground: oklch(0.94 0.005 70);
   
   /* 警告色 */
-  --destructive: oklch(0.65 0.18 25);
+  --destructive: oklch(0.65 0.16 30);
   
   /* 边框与输入 */
-  --border: oklch(0.3 0.01 260);
-  --input: oklch(0.3 0.01 260);
-  --ring: oklch(0.7 0.15 160);
+  --border: oklch(0.30 0.006 70);
+  --input: oklch(0.30 0.006 70);
+  --ring: oklch(0.68 0.10 135);
   
   /* 图表色系 */
-  --chart-1: oklch(0.7 0.15 160);
-  --chart-2: oklch(0.65 0.12 180);
-  --chart-3: oklch(0.6 0.1 200);
-  --chart-4: oklch(0.65 0.15 140);
-  --chart-5: oklch(0.7 0.12 120);
+  --chart-1: oklch(0.68 0.10 135);
+  --chart-2: oklch(0.65 0.09 160);
+  --chart-3: oklch(0.68 0.08 45);
+  --chart-4: oklch(0.62 0.07 200);
+  --chart-5: oklch(0.65 0.06 320);
   
   /* 侧边栏 */
-  --sidebar: oklch(0.18 0.01 260);
-  --sidebar-foreground: oklch(0.95 0.005 90);
-  --sidebar-primary: oklch(0.7 0.15 160);
-  --sidebar-primary-foreground: oklch(0.15 0.01 260);
-  --sidebar-accent: oklch(0.28 0.02 160);
-  --sidebar-accent-foreground: oklch(0.95 0.005 90);
-  --sidebar-border: oklch(0.28 0.01 260);
-  --sidebar-ring: oklch(0.7 0.15 160);
+  --sidebar: oklch(0.20 0.008 70);
+  --sidebar-foreground: oklch(0.94 0.005 70);
+  --sidebar-primary: oklch(0.68 0.10 135);
+  --sidebar-primary-foreground: oklch(0.18 0.008 70);
+  --sidebar-accent: oklch(0.30 0.012 135);
+  --sidebar-accent-foreground: oklch(0.94 0.005 70);
+  --sidebar-border: oklch(0.28 0.006 70);
+  --sidebar-ring: oklch(0.68 0.10 135);
 }
 
 @layer base {
@@ -210,7 +217,7 @@ body {
   box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 温暖的灰色 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -221,29 +228,29 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.7 0 0 / 0.3);
+  background: oklch(0.70 0.01 85 / 0.35);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.6 0 0 / 0.5);
+  background: oklch(0.60 0.01 85 / 0.50);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.4 0 0 / 0.3);
+  background: oklch(0.40 0.01 70 / 0.35);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.5 0 0 / 0.5);
+  background: oklch(0.50 0.01 70 / 0.50);
 }
 
-/* 选择文本样式 */
+/* 选择文本样式 - 使用主色调 */
 ::selection {
-  background: oklch(0.55 0.15 160 / 0.25);
+  background: oklch(0.52 0.08 135 / 0.20);
 }
 
 .dark ::selection {
-  background: oklch(0.7 0.15 160 / 0.35);
+  background: oklch(0.68 0.10 135 / 0.30);
 }
 
 /* 按钮组样式 */
@@ -251,13 +258,13 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.125rem;
-  background: oklch(0.96 0.005 90 / 0.5);
+  background: oklch(0.965 0.006 85 / 0.6);
   border-radius: 0.5rem;
   padding: 0.125rem;
 }
 
 .dark .btn-group {
-  background: oklch(0.26 0.01 260 / 0.5);
+  background: oklch(0.28 0.008 70 / 0.6);
 }
 
 .btn-group > button {
@@ -270,21 +277,22 @@ body {
 }
 
 .card-hover:hover {
-  box-shadow: 0 4px 12px -2px oklch(0 0 0 / 0.1);
-  border-color: oklch(0.55 0.15 160 / 0.2);
+  box-shadow: 0 4px 12px -2px oklch(0.22 0.01 85 / 0.08);
+  border-color: oklch(0.52 0.08 135 / 0.25);
 }
 
 .dark .card-hover:hover {
-  box-shadow: 0 4px 12px -2px oklch(0 0 0 / 0.3);
+  box-shadow: 0 4px 12px -2px oklch(0 0 0 / 0.25);
+  border-color: oklch(0.68 0.10 135 / 0.30);
 }
 
 /* 输入框聚焦效果 */
 .input-glow:focus {
-  box-shadow: 0 0 0 3px oklch(0.55 0.15 160 / 0.15);
+  box-shadow: 0 0 0 3px oklch(0.52 0.08 135 / 0.12);
 }
 
 .dark .input-glow:focus {
-  box-shadow: 0 0 0 3px oklch(0.7 0.15 160 / 0.25);
+  box-shadow: 0 0 0 3px oklch(0.68 0.10 135 / 0.20);
 }
 
 /* 侧边栏文档项动画 */
@@ -303,7 +311,7 @@ body {
   animation: slideIn 0.2s ease-out;
 }
 
-/* AI 按钮发光效果 */
+/* AI 按钮发光效果 - 使用温暖的绿金渐变 */
 .ai-glow {
   position: relative;
 }
@@ -312,7 +320,7 @@ body {
   content: '';
   position: absolute;
   inset: -2px;
-  background: linear-gradient(135deg, oklch(0.55 0.15 160 / 0.4), oklch(0.6 0.12 180 / 0.4));
+  background: linear-gradient(135deg, oklch(0.52 0.08 135 / 0.35), oklch(0.55 0.07 100 / 0.35));
   border-radius: inherit;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -322,4 +330,8 @@ body {
 
 .ai-glow:hover::before {
   opacity: 1;
+}
+
+.dark .ai-glow::before {
+  background: linear-gradient(135deg, oklch(0.68 0.10 135 / 0.40), oklch(0.70 0.08 100 / 0.40));
 }
