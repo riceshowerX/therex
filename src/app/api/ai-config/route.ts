@@ -145,7 +145,7 @@ export async function PATCH(request: NextRequest) {
         .eq('is_default', true);
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 

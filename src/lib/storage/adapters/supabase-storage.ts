@@ -29,6 +29,41 @@ import { createLogger } from '@/lib/logger';
 
 const logger = createLogger('supabase-storage');
 
+// 数据库记录类型定义
+interface DocumentDBRecord {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  is_favorite: boolean;
+  tags: string[];
+  word_count: number;
+  folder_id: string | null;
+  deleted_at: string | null;
+}
+
+interface FolderDBRecord {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+  updated_at: string;
+  color: string | null;
+  icon: string | null;
+  deleted_at: string | null;
+}
+
+interface VersionDBRecord {
+  id: string;
+  document_id: string;
+  content: string;
+  title: string;
+  saved_at: string;
+  word_count: number;
+  description: string | null;
+}
+
 export class SupabaseStorageAdapter implements IStorageAdapter {
   readonly provider: StorageProvider = 'supabase';
   
@@ -113,7 +148,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     return words ? words.length : 0;
   }
 
-  private transformDocumentFromDB(doc: any): StorageDocument {
+  private transformDocumentFromDB(doc: DocumentDBRecord): StorageDocument {
     return {
       id: doc.id,
       title: doc.title,
@@ -128,8 +163,8 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     };
   }
 
-  private transformDocumentToDB(doc: Partial<StorageDocument>): any {
-    const result: any = {};
+  private transformDocumentToDB(doc: Partial<StorageDocument>): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
     if (doc.title !== undefined) result.title = doc.title;
     if (doc.content !== undefined) result.content = doc.content;
     if (doc.isFavorite !== undefined) result.is_favorite = doc.isFavorite;
@@ -141,20 +176,20 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
     return result;
   }
 
-  private transformFolderFromDB(folder: any): StorageFolder {
+  private transformFolderFromDB(folder: FolderDBRecord): StorageFolder {
     return {
       id: folder.id,
       name: folder.name,
       parentId: folder.parent_id,
       createdAt: new Date(folder.created_at),
       updatedAt: new Date(folder.updated_at),
-      color: folder.color,
-      icon: folder.icon,
+      color: folder.color ?? undefined,
+      icon: folder.icon ?? undefined,
       deletedAt: folder.deleted_at ? new Date(folder.deleted_at) : null,
     };
   }
 
-  private transformVersionFromDB(version: any): StorageDocumentVersion {
+  private transformVersionFromDB(version: VersionDBRecord): StorageDocumentVersion {
     return {
       id: version.id,
       documentId: version.document_id,
@@ -162,7 +197,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
       title: version.title,
       savedAt: new Date(version.saved_at),
       wordCount: version.word_count,
-      description: version.description,
+      description: version.description ?? undefined,
     };
   }
 

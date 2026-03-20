@@ -56,7 +56,7 @@ function parseEnv() {
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('❌ 环境变量验证失败:');
-      error.issues.forEach((err: any) => {
+      error.issues.forEach((err) => {
         console.error(`  - ${err.path.join('.')}: ${err.message}`);
       });
     }

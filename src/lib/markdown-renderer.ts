@@ -78,9 +78,16 @@ marked.use({
   renderer,
 });
 
+// ECharts 类型定义
+interface EChartsType {
+  dispose: () => void;
+  resize: () => void;
+  setOption: (option: unknown) => void;
+}
+
 // ECharts 实例管理器
 interface EChartsInstance {
-  chart: any;
+  chart: EChartsType | null;
   resizeObserver: ResizeObserver;
   container: HTMLElement;
 }
@@ -96,7 +103,9 @@ export function cleanupECharts(): void {
   echartsInstances.forEach((instance, container) => {
     try {
       instance.resizeObserver.disconnect();
-      instance.chart.dispose();
+      if (instance.chart) {
+        instance.chart.dispose();
+      }
       echartsInstances.delete(container);
     } catch (error) {
       console.error('Failed to cleanup ECharts instance:', error);
@@ -112,7 +121,9 @@ export function cleanupEChartsInstance(container: HTMLElement): void {
   if (instance) {
     try {
       instance.resizeObserver.disconnect();
-      instance.chart.dispose();
+      if (instance.chart) {
+        instance.chart.dispose();
+      }
       echartsInstances.delete(container);
     } catch (error) {
       console.error('Failed to cleanup ECharts instance:', error);
@@ -229,6 +240,9 @@ export function renderCompleteMarkdown(markdown: string): string {
   return html;
 }
 
+// Mermaid 初始化标记
+let mermaidInitialized = false;
+
 /**
  * 初始化 Mermaid
  * 在客户端调用，初始化 Mermaid 渲染
@@ -239,7 +253,7 @@ export async function initMermaid(): Promise<void> {
   const { default: mermaid } = await import('mermaid');
 
   // 只初始化一次
-  if ((mermaid as any).isInitialized) return;
+  if (mermaidInitialized) return;
 
   mermaid.initialize({
     startOnLoad: false,
@@ -247,7 +261,7 @@ export async function initMermaid(): Promise<void> {
     securityLevel: 'loose',
   });
 
-  (mermaid as any).isInitialized = true;
+  mermaidInitialized = true;
 
   // 渲染所有 Mermaid 图表
   const mermaidDivs = document.querySelectorAll('.mermaid');

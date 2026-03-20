@@ -68,9 +68,14 @@ export class CloudSyncManager {
   private syncTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: Set<(status: SyncStatus, data?: unknown) => void> = new Set();
   private static instance: CloudSyncManager;
+  private boundHandleOnline: () => void;
+  private boundHandleOffline: () => void;
 
   private constructor(config?: Partial<SyncConfig>) {
     this.config = { ...defaultSyncConfig, ...config };
+    // 绑定事件处理器，确保可以在销毁时正确移除
+    this.boundHandleOnline = this.handleOnline.bind(this);
+    this.boundHandleOffline = this.handleOffline.bind(this);
     this.init();
   }
 
@@ -85,8 +90,8 @@ export class CloudSyncManager {
   private init(): void {
     // 检查在线状态
     if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => this.handleOnline());
-      window.addEventListener('offline', () => this.handleOffline());
+      window.addEventListener('online', this.boundHandleOnline);
+      window.addEventListener('offline', this.boundHandleOffline);
 
       // 启动自动同步
       if (this.config.autoSync) {
@@ -418,9 +423,12 @@ export class CloudSyncManager {
   destroy(): void {
     this.stopAutoSync();
     if (typeof window !== 'undefined') {
-      window.removeEventListener('online', this.handleOnline);
-      window.removeEventListener('offline', this.handleOffline);
+      window.removeEventListener('online', this.boundHandleOnline);
+      window.removeEventListener('offline', this.boundHandleOffline);
     }
+    this.listeners.clear();
+    this.syncQueue.clear();
+    this.conflicts.clear();
   }
 }
 

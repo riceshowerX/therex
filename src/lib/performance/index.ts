@@ -3,6 +3,17 @@
  * 提供性能指标收集、分析和优化建议
  */
 
+// Layout Shift Entry 类型定义
+interface LayoutShiftEntry extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+  sources: Array<{
+    node: Node | null;
+    previousRect: DOMRectReadOnly;
+    currentRect: DOMRectReadOnly;
+  }>;
+}
+
 // 性能指标类型
 export interface PerformanceMetrics {
   // 首次内容绘制
@@ -184,8 +195,9 @@ class PerformanceMonitor {
         let clsValue = 0;
         const clsObserver = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
-            if (!(entry as any).hadRecentInput) {
-              clsValue += (entry as any).value;
+            const layoutShiftEntry = entry as LayoutShiftEntry;
+            if (!layoutShiftEntry.hadRecentInput) {
+              clsValue += layoutShiftEntry.value;
             }
           }
           this.metrics.cls = clsValue;
