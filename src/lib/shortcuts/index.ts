@@ -38,8 +38,11 @@ class ShortcutManager {
   private lastKeyTime: number = 0;
   private keySequence: string[] = [];
   private sequenceTimeout: ReturnType<typeof setTimeout> | null = null;
+  private boundHandleKeyDown: (event: KeyboardEvent) => void;
 
   private constructor() {
+    // 绑定事件处理器，确保可以在销毁时正确移除
+    this.boundHandleKeyDown = this.handleKeyDown.bind(this);
     if (typeof window !== 'undefined') {
       this.attachListeners();
     }
@@ -208,7 +211,21 @@ class ShortcutManager {
   // 私有方法
 
   private attachListeners(): void {
-    document.addEventListener('keydown', this.handleKeyDown.bind(this) as EventListener);
+    document.addEventListener('keydown', this.boundHandleKeyDown);
+  }
+
+  /**
+   * 销毁管理器（移除所有事件监听器）
+   * 注意：通常不需要调用此方法，因为单例会在整个应用生命周期中存在
+   */
+  destroy(): void {
+    document.removeEventListener('keydown', this.boundHandleKeyDown);
+    this.shortcuts.clear();
+    this.scopeListeners = [];
+    if (this.sequenceTimeout) {
+      clearTimeout(this.sequenceTimeout);
+      this.sequenceTimeout = null;
+    }
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
