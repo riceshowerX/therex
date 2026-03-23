@@ -27,13 +27,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Bold,
-  Italic,
   MoveUp,
   MoveDown,
   Copy,
-  Merge,
-  Split,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +59,9 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
   
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // 使用 ref 跟踪是否需要通知父组件
+  const shouldNotifyRef = useRef(false);
   
   // 解析 Markdown 表格
   function parseMarkdownTable(markdown: string): TableData {
@@ -129,36 +128,36 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
     return [headerLine, separatorLine, ...dataLines].join('\n');
   }, []);
   
+  // 在 useEffect 中通知父组件，避免在渲染期间调用 setState
+  useEffect(() => {
+    if (shouldNotifyRef.current) {
+      shouldNotifyRef.current = false;
+      onChange(generateMarkdown(tableData));
+    }
+  }, [tableData, onChange, generateMarkdown]);
+  
   // 更新表头
   const updateHeader = useCallback((colIndex: number, value: string) => {
     setTableData(prev => {
-      const newData = {
-        ...prev,
-        headers: [...prev.headers],
-      };
-      newData.headers[colIndex] = value;
-      const markdown = generateMarkdown(newData);
-      onChange(markdown);
-      return newData;
+      const newHeaders = [...prev.headers];
+      newHeaders[colIndex] = value;
+      return { ...prev, headers: newHeaders };
     });
-  }, [generateMarkdown, onChange]);
+    shouldNotifyRef.current = true;
+  }, []);
   
   // 更新单元格
   const updateCell = useCallback((rowIndex: number, colIndex: number, value: string) => {
-    setTableData(prev => {
-      const newData = {
-        ...prev,
-        rows: prev.rows.map((row, rIdx) => 
-          rIdx === rowIndex 
-            ? row.map((cell, cIdx) => cIdx === colIndex ? value : cell)
-            : row
-        ),
-      };
-      const markdown = generateMarkdown(newData);
-      onChange(markdown);
-      return newData;
-    });
-  }, [generateMarkdown, onChange]);
+    setTableData(prev => ({
+      ...prev,
+      rows: prev.rows.map((row, rIdx) => 
+        rIdx === rowIndex 
+          ? row.map((cell, cIdx) => cIdx === colIndex ? value : cell)
+          : row
+      ),
+    }));
+    shouldNotifyRef.current = true;
+  }, []);
   
   // 添加列
   const addColumn = useCallback((position: 'left' | 'right' = 'right') => {
@@ -178,29 +177,25 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
         return newRow;
       });
       
-      const newData = { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
-      onChange(generateMarkdown(newData));
-      return newData;
+      return { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
     });
-  }, [selectedCell, generateMarkdown, onChange]);
+    shouldNotifyRef.current = true;
+  }, [selectedCell]);
   
   // 删除列
   const deleteColumn = useCallback(() => {
     if (!selectedCell || tableData.headers.length <= 1) return;
     
-    const colIndex = selectedCell.col;
-    
     setTableData(prev => {
-      const newHeaders = prev.headers.filter((_, i) => i !== colIndex);
-      const newAlignments = prev.alignments.filter((_, i) => i !== colIndex);
-      const newRows = prev.rows.map(row => row.filter((_, i) => i !== colIndex));
+      const newHeaders = prev.headers.filter((_, i) => i !== selectedCell.col);
+      const newAlignments = prev.alignments.filter((_, i) => i !== selectedCell.col);
+      const newRows = prev.rows.map(row => row.filter((_, i) => i !== selectedCell.col));
       
-      const newData = { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
-      onChange(generateMarkdown(newData));
-      return newData;
+      return { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
     });
+    shouldNotifyRef.current = true;
     setSelectedCell(null);
-  }, [selectedCell, tableData.headers.length, generateMarkdown, onChange]);
+  }, [selectedCell, tableData.headers.length]);
   
   // 添加行
   const addRow = useCallback((position: 'above' | 'below' = 'below') => {
@@ -212,26 +207,22 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
       const newRows = [...prev.rows];
       newRows.splice(insertIndex, 0, newRow);
       
-      const newData = { ...prev, rows: newRows };
-      onChange(generateMarkdown(newData));
-      return newData;
+      return { ...prev, rows: newRows };
     });
-  }, [selectedCell, generateMarkdown, onChange]);
+    shouldNotifyRef.current = true;
+  }, [selectedCell]);
   
   // 删除行
   const deleteRow = useCallback(() => {
     if (!selectedCell || tableData.rows.length <= 1) return;
     
-    const rowIndex = selectedCell.row;
-    
     setTableData(prev => {
-      const newRows = prev.rows.filter((_, i) => i !== rowIndex);
-      const newData = { ...prev, rows: newRows };
-      onChange(generateMarkdown(newData));
-      return newData;
+      const newRows = prev.rows.filter((_, i) => i !== selectedCell.row);
+      return { ...prev, rows: newRows };
     });
+    shouldNotifyRef.current = true;
     setSelectedCell(null);
-  }, [selectedCell, tableData.rows.length, generateMarkdown, onChange]);
+  }, [selectedCell, tableData.rows.length]);
   
   // 设置对齐方式
   const setAlignment = useCallback((alignment: 'left' | 'center' | 'right') => {
@@ -243,11 +234,10 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
       const newAlignments = [...prev.alignments];
       newAlignments[colIndex] = alignment;
       
-      const newData = { ...prev, alignments: newAlignments };
-      onChange(generateMarkdown(newData));
-      return newData;
+      return { ...prev, alignments: newAlignments };
     });
-  }, [selectedCell, generateMarkdown, onChange]);
+    shouldNotifyRef.current = true;
+  }, [selectedCell]);
   
   // 移动行
   const moveRow = useCallback((direction: 'up' | 'down') => {
@@ -262,13 +252,12 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
       const newRows = [...prev.rows];
       [newRows[rowIndex], newRows[newIndex]] = [newRows[newIndex], newRows[rowIndex]];
       
-      const newData = { ...prev, rows: newRows };
-      onChange(generateMarkdown(newData));
-      return newData;
+      return { ...prev, rows: newRows };
     });
+    shouldNotifyRef.current = true;
     
     setSelectedCell({ row: newIndex, col: selectedCell.col });
-  }, [selectedCell, tableData.rows.length, generateMarkdown, onChange]);
+  }, [selectedCell, tableData.rows.length]);
   
   // 复制表格
   const copyTable = useCallback(() => {
@@ -277,13 +266,13 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
   }, [tableData, generateMarkdown]);
   
   // 处理键盘事件
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, isHeader: boolean, rowIndex?: number, colIndex?: number) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, colIndex?: number) => {
     if (e.key === 'Tab') {
       e.preventDefault();
       const nextCol = e.shiftKey ? (colIndex || 0) - 1 : (colIndex || 0) + 1;
       
       if (nextCol >= 0 && nextCol < tableData.headers.length) {
-        setSelectedCell({ row: rowIndex ?? -1, col: nextCol });
+        setSelectedCell(prev => prev ? { ...prev, col: nextCol } : null);
       }
     }
   }, [tableData.headers.length]);
@@ -400,7 +389,7 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
                     value={header}
                     onChange={(e) => updateHeader(colIndex, e.target.value)}
                     onFocus={() => setSelectedCell({ row: -1, col: colIndex })}
-                    onKeyDown={(e) => handleKeyDown(e, true, -1, colIndex)}
+                    onKeyDown={(e) => handleKeyDown(e, colIndex)}
                     className="border-none bg-transparent focus:ring-1 focus:ring-primary font-semibold"
                   />
                 </TableHead>
@@ -424,7 +413,7 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
                       value={cell}
                       onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)}
                       onFocus={() => setSelectedCell({ row: rowIndex, col: colIndex })}
-                      onKeyDown={(e) => handleKeyDown(e, false, rowIndex, colIndex)}
+                      onKeyDown={(e) => handleKeyDown(e, colIndex)}
                       className="border-none bg-transparent focus:ring-1 focus:ring-primary"
                       placeholder="..."
                     />
