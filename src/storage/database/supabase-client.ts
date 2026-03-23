@@ -41,7 +41,8 @@ export function getSupabaseClient() {
  */
 export function getSupabaseAdminClient() {
   if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Supabase 服务端环境变量未配置');
+    console.warn('Supabase 服务端环境变量未配置，将使用本地存储');
+    return null;
   }
 
   return createClient(

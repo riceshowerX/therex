@@ -114,6 +114,11 @@ export async function POST(request: NextRequest) {
 async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | null> {
   try {
     const client = getSupabaseAdminClient();
+    if (!client) {
+      console.warn('Supabase 未配置，无法从数据库获取 AI 配置');
+      return null;
+    }
+    
     const { data: config, error } = await client
       .from('ai_configurations')
       .select('provider, apiKey, apiEndpoint, model')

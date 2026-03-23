@@ -33,9 +33,17 @@ const updateAIConfigSchema = z.object({
 });
 
 // GET - 获取所有 AI 配置
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
+    // 检查 Supabase 是否配置
     const client = getSupabaseAdminClient();
+    if (!client) {
+      return NextResponse.json(
+        { data: [], message: 'Supabase 未配置，使用本地存储' },
+        { status: 200 }
+      );
+    }
+    
     const { data: configs, error } = await client
       .from('ai_configurations')
       .select('id, provider, apiEndpoint, model, temperature, maxTokens, enableSystemPrompt, systemPrompt, isDefault, createdAt, updatedAt')
@@ -67,6 +75,12 @@ export async function POST(request: NextRequest) {
     const validatedData = createAIConfigSchema.parse(body);
 
     const client = getSupabaseAdminClient();
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Supabase 未配置，无法保存 AI 配置到云端' },
+        { status: 503 }
+      );
+    }
 
     // 如果设置为默认配置，取消其他默认配置
     if (validatedData.isDefault) {
@@ -135,6 +149,12 @@ export async function PATCH(request: NextRequest) {
     const validatedData = updateAIConfigSchema.parse(updates);
 
     const client = getSupabaseAdminClient();
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Supabase 未配置，无法更新 AI 配置' },
+        { status: 503 }
+      );
+    }
 
     // 如果设置为默认配置，取消其他默认配置
     if (validatedData.isDefault === true) {
@@ -205,6 +225,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     const client = getSupabaseAdminClient();
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Supabase 未配置，无法删除 AI 配置' },
+        { status: 503 }
+      );
+    }
 
     const { error } = await client
       .from('ai_configurations')
