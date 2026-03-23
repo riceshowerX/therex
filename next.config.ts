@@ -23,10 +23,12 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     // 最小缓存时间
     minimumCacheTTL: 60 * 60 * 24 * 30, // 30 天
-    // 磁盘缓存大小限制（修复 CVE-2026-27980）
-    // 设置为 100MB，防止无限制增长导致磁盘空间耗尽
-    maximumDiskCacheSize: 100 * 1024 * 1024,
   },
+
+  // 磁盘缓存大小限制（修复 CVE-2026-27980）
+  // 设置为 100MB，防止无限制增长导致磁盘空间耗尽
+  cacheHandler: undefined,
+  cacheMaxMemorySize: 100 * 1024 * 1024,
 
   // 启用 Turbopack 配置以兼容 Next.js 16
   turbopack: {},
