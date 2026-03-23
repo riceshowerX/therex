@@ -18,6 +18,7 @@ import type {
   ExportData,
 } from '@/types';
 import { createLogger } from '@/lib/logger';
+import { generateId, calculateWordCount, now } from '@/lib/utils';
 import {
   STORAGE_PREFIX,
   STORAGE_CONFIG_KEY,
@@ -53,21 +54,6 @@ type AnyStorageConfig = LocalStorageConfig | IndexedDBConfig | SupabaseConfig;
 
 // 注：常量已移至 src/lib/constants.ts
 const DEFAULT_PREFIX = STORAGE_PREFIX;
-// ==================== 工具函数 ====================
-
-function generateId(prefix: string = 'id'): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-}
-
-function calculateWordCount(content: string): number {
-  if (!content || !content.trim()) return 0;
-  const words = content.trim().match(/[\w\u4e00-\u9fa5]+/g);
-  return words ? words.length : 0;
-}
-
-function now(): number {
-  return Date.now();
-}
 
 // ==================== 存储管理器类 ====================
 

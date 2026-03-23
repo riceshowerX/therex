@@ -29,6 +29,9 @@ export function usePWAInstall() {
   });
 
   useEffect(() => {
+    // SSR 安全：仅在客户端执行
+    if (typeof window === 'undefined') return;
+
     // 检查是否已经安装（以 standalone 模式运行）
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
       // @ts-expect-error - iOS Safari

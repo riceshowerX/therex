@@ -108,7 +108,7 @@ export const SENSITIVE_FIELDS = [
 // ==================== 版本信息 ====================
 
 /** 应用版本 */
-export const APP_VERSION = '1.6.0';
+export const APP_VERSION = '1.7.0';
 
 /** 数据格式版本 */
 export const DATA_FORMAT_VERSION = '1.0.0';

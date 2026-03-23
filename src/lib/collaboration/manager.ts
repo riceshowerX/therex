@@ -14,26 +14,10 @@ import type {
   WSMessage,
   CursorPosition,
   SelectionRange,
-  USER_COLORS,
-  getRandomUserColor,
-  generateId,
 } from './types';
+import { getRandomUserColor, generateId } from './types';
 
 const logger = createLogger('collaboration');
-
-// 用户颜色
-const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-];
-
-function getRandomColor(): string {
-  return COLORS[Math.floor(Math.random() * COLORS.length)];
-}
-
-function generateUniqueId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
 
 // 事件类型
 export type CollaborationEvent = 
@@ -92,9 +76,9 @@ export class CollaborationManager {
     }
 
     this.currentUser = {
-      id: generateUniqueId(),
+      id: generateId(),
       name: userName,
-      color: getRandomColor(),
+      color: getRandomUserColor(),
       lastActive: Date.now(),
       isTyping: false,
     };

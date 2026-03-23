@@ -11,10 +11,38 @@
  */
 
 import { marked, Tokens } from 'marked';
-import remarkGfm from 'remark-gfm';
-import katex from 'katex';
-import hljs from 'highlight.js';
-import 'katex/dist/katex.min.css';
+
+// 动态导入客户端库（SSR 安全）
+let katex: typeof import('katex') | null = null;
+let hljs: typeof import('highlight.js') | null = null;
+
+// 懒加载客户端库
+async function loadClientLibs(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  
+  if (!katex) {
+    katex = await import('katex');
+    // 动态导入 CSS
+    try {
+      await import('katex/dist/katex.min.css');
+    } catch {
+      // CSS 导入可能失败，忽略错误
+    }
+  }
+  if (!hljs) {
+    hljs = await import('highlight.js');
+    try {
+      await import('highlight.js/styles/github-dark.css');
+    } catch {
+      // CSS 导入可能失败，忽略错误
+    }
+  }
+}
+
+// 在模块加载时初始化
+if (typeof window !== 'undefined') {
+  loadClientLibs();
+}
 
 /**
  * 生成标题 ID（与目录生成逻辑保持一致）
@@ -37,39 +65,40 @@ const renderer = {
     
     // 处理 Mermaid 图表
     if (language === 'mermaid') {
-      return `<div class="mermaid-container"><pre class="mermaid">${text}</pre></div>`;
+      return `<div class="mermaid-container"><pre class="mermaid">${escapeHtml(text)}</pre></div>`;
     }
     
     // 处理 ECharts 图表
     if (language === 'echarts') {
-      const unescapedCode = text
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&#39;/g, "'");
-      
-      try {
-        JSON.parse(unescapedCode.trim());
-        const encodedCode = encodeURIComponent(unescapedCode.trim());
-        return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
-      } catch (error) {
-        return `<div class="echarts-container error">
-          <div class="text-red-500 p-4">
-            <strong>ECharts 配置错误：</strong>
-            <pre class="mt-2">${error}</pre>
-          </div>
-        </div>`;
-      }
+      const encodedCode = encodeURIComponent(text.trim());
+      return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
     }
     
     // 处理普通代码块（带语法高亮）
-    const validLanguage = language && hljs.getLanguage(language) ? language : 'plaintext';
-    const highlighted = hljs.highlight(text, { language: validLanguage }).value;
+    if (hljs && language) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const highlighted = (hljs as any).highlight(text, { language, ignoreIllegals: true });
+        return `<pre class="hljs"><code class="language-${language}">${highlighted.value}</code></pre>`;
+      } catch {
+        // 高亮失败，使用普通代码块
+      }
+    }
     
-    return `<pre class="hljs"><code class="language-${validLanguage}">${highlighted}</code></pre>`;
+    // 无高亮或 SSR 环境
+    return `<pre class="hljs"><code class="language-${language || 'plaintext'}">${escapeHtml(text)}</code></pre>`;
   },
 };
+
+// HTML 转义函数
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 // 配置 marked，启用代码高亮和目录跳转
 marked.use({
@@ -111,6 +140,7 @@ export function cleanupECharts(): void {
       console.error('Failed to cleanup ECharts instance:', error);
     }
   });
+  echartsInstances.clear();
 }
 
 /**
@@ -150,16 +180,16 @@ export function renderMarkdown(markdown: string): string {
  * 支持 $...$ 和 \(...\) 语法
  */
 export function renderInlineMath(text: string): string {
-  if (!text) return text;
+  if (!text || !katex) return text;
 
   // $...$ 语法
   text = text.replace(/\$([^$\n]+)\$/g, (match, math) => {
     try {
-      return katex.renderToString(math, {
+      return katex!.renderToString(math, {
         displayMode: false,
         throwOnError: false,
       });
-    } catch (error) {
+    } catch {
       return match;
     }
   });
@@ -167,11 +197,11 @@ export function renderInlineMath(text: string): string {
   // \(...\) 语法
   text = text.replace(/\\\(([^)\n]+)\\\)/g, (match, math) => {
     try {
-      return katex.renderToString(math, {
+      return katex!.renderToString(math, {
         displayMode: false,
         throwOnError: false,
       });
-    } catch (error) {
+    } catch {
       return match;
     }
   });
@@ -184,16 +214,16 @@ export function renderInlineMath(text: string): string {
  * 支持 $$...$$ 和 \[...\] 语法
  */
 export function renderBlockMath(text: string): string {
-  if (!text) return text;
+  if (!text || !katex) return text;
 
   // $$...$$ 语法
   text = text.replace(/\$\$([^$]+)\$\$/g, (match, math) => {
     try {
-      return katex.renderToString(math, {
+      return katex!.renderToString(math, {
         displayMode: true,
         throwOnError: false,
       });
-    } catch (error) {
+    } catch {
       return match;
     }
   });
@@ -201,11 +231,11 @@ export function renderBlockMath(text: string): string {
   // \[...\] 语法
   text = text.replace(/\\\[([\s\S]+?)\\\]/g, (match, math) => {
     try {
-      return katex.renderToString(math.trim(), {
+      return katex!.renderToString(math.trim(), {
         displayMode: true,
         throwOnError: false,
       });
-    } catch (error) {
+    } catch {
       return match;
     }
   });

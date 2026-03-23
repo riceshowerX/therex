@@ -2,6 +2,8 @@
  * 实时协作编辑类型定义
  */
 
+import { generateId as generateIdUtil } from '@/lib/utils';
+
 // 用户信息
 export interface Collaborator {
   id: string;
@@ -175,7 +177,7 @@ export function getRandomUserColor(): string {
   return USER_COLORS[Math.floor(Math.random() * USER_COLORS.length)];
 }
 
-// 生成唯一 ID
+// 生成唯一 ID（包装统一的工具函数）
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return generateIdUtil('collab');
 }

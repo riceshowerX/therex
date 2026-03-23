@@ -24,12 +24,14 @@ export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewPro
 
   // 使用 useMemo 缓存处理后的 HTML
   const htmlContent = useMemo(() => {
+    if (typeof window === 'undefined') return '';
     return renderCompleteMarkdown(markdown);
   }, [markdown]);
 
   // 渲染 Markdown 和图表
   useEffect(() => {
-    if (!previewRef.current) return;
+    // SSR 安全：仅在客户端执行
+    if (typeof window === 'undefined' || !previewRef.current) return;
 
     // 清理旧的 ECharts 实例
     cleanupECharts();
