@@ -38,6 +38,8 @@ import {
   Music,
   Database,
   Globe,
+  AlertTriangle,
+  Info,
 } from 'lucide-react';
 import { pluginManager, type PluginInstance, type PluginManifest } from '@/lib/plugins/manager';
 import { toast } from 'sonner';
@@ -390,6 +392,21 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
             </div>
           </div>
         </DialogHeader>
+
+        {/* 演示模式提示 */}
+        <div className="px-6 pt-4 shrink-0">
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                插件系统演示模式
+              </p>
+              <p className="text-xs text-muted-foreground">
+                当前为演示模式，插件安装后会被记录但不会实际执行插件代码。完整功能将在后续版本中开放。
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* 搜索栏 */}
         <div className="p-4 border-b border-border shrink-0">

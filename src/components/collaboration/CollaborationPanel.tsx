@@ -33,6 +33,7 @@ import {
   MousePointer,
   UserPlus,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { getCollaborationManager, type CollaborationManager } from '@/lib/collaboration/manager';
 import type { Collaborator, CursorPosition, SelectionRange } from '@/lib/collaboration/types';
@@ -171,6 +172,9 @@ export function CollaborationPanel({
     return `${Math.floor(diff / 3600000)} 小时前`;
   };
 
+  // 服务是否可用（当前 WebSocket 服务器未部署）
+  const isServiceAvailable = false;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -185,6 +189,21 @@ export function CollaborationPanel({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* 服务不可用提示 */}
+          {!isServiceAvailable && (
+            <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                  协作服务暂未开放
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  实时协作功能需要部署 WebSocket 服务器支持，当前版本暂未开放此功能。敬请期待后续更新！
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 连接状态 */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
             <div className="flex items-center gap-2">
@@ -215,11 +234,12 @@ export function CollaborationPanel({
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="输入你的名字"
                   onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+                  disabled={!isServiceAvailable}
                 />
               </div>
               <Button 
                 onClick={handleJoin} 
-                disabled={!userName.trim() || isJoining}
+                disabled={!userName.trim() || isJoining || !isServiceAvailable}
                 className="w-full"
               >
                 {isJoining ? (
