@@ -440,6 +440,32 @@ export class CollaborationManager {
   getCollaborators(): Collaborator[] {
     return this.session?.collaborators ?? [];
   }
+
+  /**
+   * 销毁管理器，清理所有资源
+   * 用于防止内存泄漏
+   */
+  destroy(): void {
+    // 断开连接
+    this.disconnect();
+    
+    // 清理重连定时器
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
+    // 清理所有事件处理器
+    this.eventHandlers.clear();
+    
+    // 清理会话数据
+    this.session = null;
+    this.currentUser = null;
+    this.pendingOperations = [];
+    this.documentVersion = 0;
+    
+    logger.info('CollaborationManager destroyed');
+  }
 }
 
 // 单例实例
@@ -450,4 +476,15 @@ export function getCollaborationManager(config?: CollaborationManagerConfig): Co
     collaborationManagerInstance = new CollaborationManager(config);
   }
   return collaborationManagerInstance;
+}
+
+/**
+ * 重置协作管理器实例
+ * 用于测试或需要完全重新初始化时
+ */
+export function resetCollaborationManager(): void {
+  if (collaborationManagerInstance) {
+    collaborationManagerInstance.destroy();
+    collaborationManagerInstance = null;
+  }
 }
