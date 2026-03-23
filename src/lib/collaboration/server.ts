@@ -136,9 +136,9 @@ export function joinRoom(
 }
 
 // 离开房间
-export function leaveRoom(roomId: string, userId: string): boolean {
+export function leaveRoom(roomId: string, userId: string): { success: boolean; isEmpty: boolean } {
   const room = rooms.get(roomId);
-  if (!room) return false;
+  if (!room) return { success: false, isEmpty: true };
 
   room.collaborators.delete(userId);
   
@@ -151,12 +151,10 @@ export function leaveRoom(roomId: string, userId: string): boolean {
     }
   }
 
-  // 如果房间为空，删除房间
-  if (room.collaborators.size === 0) {
-    rooms.delete(roomId);
-  }
-
-  return true;
+  // 注意：不再立即删除房间，让房间保持存在以便其他人可以加入
+  // 房间会在 cleanupExpiredRooms 中被清理（超过 24 小时无活动）
+  
+  return { success: true, isEmpty: room.collaborators.size === 0 };
 }
 
 // 获取房间信息

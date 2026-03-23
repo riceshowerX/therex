@@ -18,9 +18,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const success = leaveRoom(roomId, userId);
+    const result = leaveRoom(roomId, userId);
 
-    return NextResponse.json({ success });
+    return NextResponse.json({ 
+      success: result.success,
+      isEmpty: result.isEmpty 
+    });
   } catch (error) {
     console.error('Leave room error:', error);
     return NextResponse.json(
