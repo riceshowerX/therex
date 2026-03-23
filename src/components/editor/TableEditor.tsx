@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -126,54 +126,40 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
   const [tableData, setTableData] = useState<TableData>(initialData);
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   
-  // 跟踪是否是用户主动编辑（非初始化）
-  const isUserEditRef = useRef(false);
-  
   // 当 initialMarkdown 变化时，重置表格数据
   useEffect(() => {
     setTableData(initialData);
-    isUserEditRef.current = false;
   }, [initialData]);
   
-  // 通知父组件数据变化
-  const notifyChange = useCallback((data: TableData) => {
-    const markdown = generateMarkdownFromData(data);
+  // 提交最终结果（仅在点击完成时调用）
+  const handleSubmit = useCallback(() => {
+    const markdown = generateMarkdownFromData(tableData);
     onChange(markdown);
-  }, [onChange]);
+  }, [tableData, onChange]);
   
-  // 更新表头
+  // 更新表头（仅更新本地状态，不通知父组件）
   const updateHeader = useCallback((colIndex: number, value: string) => {
-    isUserEditRef.current = true;
     setTableData(prev => {
       const newHeaders = [...prev.headers];
       newHeaders[colIndex] = value;
-      const newData = { ...prev, headers: newHeaders };
-      // 使用 setTimeout 延迟调用，避免在渲染期间更新父组件
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, headers: newHeaders };
     });
-  }, [notifyChange]);
+  }, []);
   
-  // 更新单元格
+  // 更新单元格（仅更新本地状态，不通知父组件）
   const updateCell = useCallback((rowIndex: number, colIndex: number, value: string) => {
-    isUserEditRef.current = true;
-    setTableData(prev => {
-      const newData = {
-        ...prev,
-        rows: prev.rows.map((row, rIdx) => 
-          rIdx === rowIndex 
-            ? row.map((cell, cIdx) => cIdx === colIndex ? value : cell)
-            : row
-        ),
-      };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
-    });
-  }, [notifyChange]);
+    setTableData(prev => ({
+      ...prev,
+      rows: prev.rows.map((row, rIdx) => 
+        rIdx === rowIndex 
+          ? row.map((cell, cIdx) => cIdx === colIndex ? value : cell)
+          : row
+      ),
+    }));
+  }, []);
   
   // 添加列
   const addColumn = useCallback((position: 'left' | 'right' = 'right') => {
-    isUserEditRef.current = true;
     setTableData(prev => {
       const colIndex = selectedCell?.col ?? prev.headers.length;
       const insertIndex = position === 'left' ? colIndex : colIndex + 1;
@@ -190,32 +176,26 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
         return newRow;
       });
       
-      const newData = { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
     });
-  }, [selectedCell, notifyChange]);
+  }, [selectedCell]);
   
   // 删除列
   const deleteColumn = useCallback(() => {
     if (!selectedCell || tableData.headers.length <= 1) return;
     
-    isUserEditRef.current = true;
     setTableData(prev => {
       const newHeaders = prev.headers.filter((_, i) => i !== selectedCell.col);
       const newAlignments = prev.alignments.filter((_, i) => i !== selectedCell.col);
       const newRows = prev.rows.map(row => row.filter((_, i) => i !== selectedCell.col));
       
-      const newData = { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, headers: newHeaders, alignments: newAlignments, rows: newRows };
     });
     setSelectedCell(null);
-  }, [selectedCell, tableData.headers.length, notifyChange]);
+  }, [selectedCell, tableData.headers.length]);
   
   // 添加行
   const addRow = useCallback((position: 'above' | 'below' = 'below') => {
-    isUserEditRef.current = true;
     setTableData(prev => {
       const rowIndex = selectedCell?.row ?? prev.rows.length;
       const insertIndex = position === 'above' ? rowIndex : rowIndex + 1;
@@ -224,42 +204,34 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
       const newRows = [...prev.rows];
       newRows.splice(insertIndex, 0, newRow);
       
-      const newData = { ...prev, rows: newRows };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, rows: newRows };
     });
-  }, [selectedCell, notifyChange]);
+  }, [selectedCell]);
   
   // 删除行
   const deleteRow = useCallback(() => {
     if (!selectedCell || tableData.rows.length <= 1) return;
     
-    isUserEditRef.current = true;
     setTableData(prev => {
       const newRows = prev.rows.filter((_, i) => i !== selectedCell.row);
-      const newData = { ...prev, rows: newRows };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, rows: newRows };
     });
     setSelectedCell(null);
-  }, [selectedCell, tableData.rows.length, notifyChange]);
+  }, [selectedCell, tableData.rows.length]);
   
   // 设置对齐方式
   const setAlignment = useCallback((alignment: 'left' | 'center' | 'right') => {
     if (!selectedCell) return;
     
-    isUserEditRef.current = true;
     const colIndex = selectedCell.col;
     
     setTableData(prev => {
       const newAlignments = [...prev.alignments];
       newAlignments[colIndex] = alignment;
       
-      const newData = { ...prev, alignments: newAlignments };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, alignments: newAlignments };
     });
-  }, [selectedCell, notifyChange]);
+  }, [selectedCell]);
   
   // 移动行
   const moveRow = useCallback((direction: 'up' | 'down') => {
@@ -270,18 +242,15 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
     
     if (newIndex < 0 || newIndex >= tableData.rows.length) return;
     
-    isUserEditRef.current = true;
     setTableData(prev => {
       const newRows = [...prev.rows];
       [newRows[rowIndex], newRows[newIndex]] = [newRows[newIndex], newRows[rowIndex]];
       
-      const newData = { ...prev, rows: newRows };
-      setTimeout(() => notifyChange(newData), 0);
-      return newData;
+      return { ...prev, rows: newRows };
     });
     
     setSelectedCell({ row: newIndex, col: selectedCell.col });
-  }, [selectedCell, tableData.rows.length, notifyChange]);
+  }, [selectedCell, tableData.rows.length]);
   
   // 复制表格
   const copyTable = useCallback(() => {
@@ -387,7 +356,10 @@ export function MarkdownTableEditor({ initialMarkdown, onChange, onClose }: Mark
         {onClose && (
           <>
             <div className="flex-1" />
-            <Button variant="default" size="sm" onClick={onClose}>
+            <Button variant="default" size="sm" onClick={() => {
+              handleSubmit();
+              onClose();
+            }}>
               完成
             </Button>
           </>
