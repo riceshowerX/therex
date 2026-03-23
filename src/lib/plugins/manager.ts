@@ -1,6 +1,6 @@
 /**
  * 插件系统
- * 支持插件加载、生命周期管理、API 暴露
+ * 支持插件注册、生命周期管理、API 暴露
  */
 
 'use client';
@@ -93,6 +93,22 @@ export interface PluginInstance {
   activatedAt?: number;
 }
 
+// 编辑器上下文 - 由外部注入
+export interface EditorContext {
+  getContent: () => string;
+  setContent: (content: string) => void;
+  getSelection: () => { start: number; end: number; text: string };
+  setSelection: (start: number, end: number) => void;
+  insertText: (text: string) => void;
+  onContentChange: (callback: (content: string) => void) => () => void;
+}
+
+// AI 上下文 - 由外部注入
+export interface AIContext {
+  complete: (prompt: string, options?: { systemPrompt?: string }) => Promise<string>;
+  streamComplete: (prompt: string, onChunk: (chunk: string) => void, options?: { systemPrompt?: string }) => Promise<void>;
+}
+
 // 插件 API（暴露给插件使用）
 export interface PluginAPI {
   // 存储
@@ -104,14 +120,7 @@ export interface PluginAPI {
   };
   
   // 编辑器
-  editor: {
-    getContent: () => string;
-    setContent: (content: string) => void;
-    getSelection: () => { start: number; end: number; text: string };
-    setSelection: (start: number, end: number) => void;
-    insertText: (text: string) => void;
-    onContentChange: (callback: (content: string) => void) => () => void;
-  };
+  editor: EditorContext;
   
   // 命令
   commands: {
@@ -125,10 +134,7 @@ export interface PluginAPI {
   };
   
   // AI
-  ai: {
-    complete: (prompt: string, options?: { systemPrompt?: string }) => Promise<string>;
-    streamComplete: (prompt: string, onChunk: (chunk: string) => void, options?: { systemPrompt?: string }) => Promise<void>;
-  };
+  ai: AIContext;
   
   // 网络
   network: {
@@ -160,14 +166,46 @@ export interface PluginHooks {
 // 插件模块类型
 export type PluginModule = PluginManifest & PluginHooks;
 
+// 插件定义（用于注册内置插件）
+export interface PluginDefinition {
+  manifest: PluginManifest;
+  activate: (api: PluginAPI) => Promise<void> | void;
+  deactivate?: () => Promise<void> | void;
+}
+
+// 权限请求回调
+export type PermissionRequestCallback = (
+  pluginId: string,
+  pluginName: string,
+  permissions: PluginPermission[]
+) => Promise<boolean>;
+
+// 通知回调
+export type NotificationCallback = (
+  message: string,
+  type: 'info' | 'success' | 'warning' | 'error'
+) => void;
+
+// 插件管理器配置
+export interface PluginManagerConfig {
+  editorContext?: EditorContext;
+  aiContext?: AIContext;
+  onPermissionRequest?: PermissionRequestCallback;
+  onNotification?: NotificationCallback;
+}
+
 // 插件管理器
 export class PluginManager {
   private plugins: Map<string, PluginInstance> = new Map();
+  private modules: Map<string, PluginModule> = new Map();
   private apis: Map<string, PluginAPI> = new Map();
   private commandHandlers: Map<string, () => void> = new Map();
+  private config: PluginManagerConfig;
   private static instance: PluginManager;
 
-  private constructor() {}
+  private constructor(config: PluginManagerConfig = {}) {
+    this.config = config;
+  }
 
   static getInstance(): PluginManager {
     if (!PluginManager.instance) {
@@ -176,7 +214,38 @@ export class PluginManager {
     return PluginManager.instance;
   }
 
-  // 注册插件
+  // 配置管理器
+  configure(config: PluginManagerConfig): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  // 注册内置插件
+  registerBuiltIn(definition: PluginDefinition): boolean {
+    const { manifest, activate, deactivate } = definition;
+
+    if (this.plugins.has(manifest.id)) {
+      logger.warn(`Plugin ${manifest.id} is already registered`);
+      return false;
+    }
+
+    this.plugins.set(manifest.id, {
+      manifest,
+      status: 'inactive',
+      settings: this.loadDefaultSettings(manifest),
+    });
+
+    // 存储模块
+    this.modules.set(manifest.id, {
+      ...manifest,
+      activate,
+      deactivate,
+    });
+
+    logger.info(`Built-in plugin ${manifest.id} registered`);
+    return true;
+  }
+
+  // 注册插件（从 manifest）
   async register(manifest: PluginManifest): Promise<boolean> {
     if (this.plugins.has(manifest.id)) {
       logger.warn(`Plugin ${manifest.id} is already registered`);
@@ -185,7 +254,7 @@ export class PluginManager {
 
     // 验证权限
     if (manifest.permissions?.length) {
-      const granted = await this.requestPermissions(manifest.permissions);
+      const granted = await this.requestPermissions(manifest.id, manifest.name, manifest.permissions);
       if (!granted) {
         logger.warn(`Permission denied for plugin ${manifest.id}`);
         return false;
@@ -197,6 +266,9 @@ export class PluginManager {
       status: 'inactive',
       settings: this.loadDefaultSettings(manifest),
     });
+
+    // 创建空模块（外部插件需要通过 registerBuiltIn 注册实际代码）
+    this.modules.set(manifest.id, manifest);
 
     logger.info(`Plugin ${manifest.id} registered`);
     return true;
@@ -221,10 +293,10 @@ export class PluginManager {
       const api = this.createAPI(pluginId);
       this.apis.set(pluginId, api);
 
-      // 加载插件模块
-      const module = await this.loadPluginModule(instance.manifest);
+      // 获取模块
+      const module = this.modules.get(pluginId);
       
-      if (module.activate) {
+      if (module?.activate) {
         await module.activate(api);
       }
 
@@ -262,9 +334,9 @@ export class PluginManager {
     instance.status = 'deactivating';
 
     try {
-      const module = await this.loadPluginModule(instance.manifest);
+      const module = this.modules.get(pluginId);
       
-      if (module.deactivate) {
+      if (module?.deactivate) {
         await module.deactivate();
       }
 
@@ -300,6 +372,14 @@ export class PluginManager {
     }
 
     this.plugins.delete(pluginId);
+    this.modules.delete(pluginId);
+    
+    // 清理存储
+    const prefix = `plugin:${pluginId}:`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => localStorage.removeItem(k));
+
     logger.info(`Plugin ${pluginId} uninstalled`);
     return true;
   }
@@ -335,12 +415,21 @@ export class PluginManager {
     this.saveSettings(pluginId, instance.settings);
 
     // 触发设置变更
-    const module = this.loadPluginModule(instance.manifest);
-    module.then(m => {
-      if (m.onSettingsChange) {
-        m.onSettingsChange(instance.settings);
+    const module = this.modules.get(pluginId);
+    if (module?.onSettingsChange) {
+      module.onSettingsChange(instance.settings);
+    }
+  }
+
+  // 获取命令列表
+  getCommands(): PluginCommand[] {
+    const commands: PluginCommand[] = [];
+    for (const instance of this.plugins.values()) {
+      if (instance.status === 'active' && instance.manifest.contributes?.commands) {
+        commands.push(...instance.manifest.contributes.commands);
       }
-    });
+    }
+    return commands;
   }
 
   // 私有方法
@@ -372,12 +461,12 @@ export class PluginManager {
       },
 
       editor: {
-        getContent: () => '',
-        setContent: () => {},
-        getSelection: () => ({ start: 0, end: 0, text: '' }),
-        setSelection: () => {},
-        insertText: () => {},
-        onContentChange: () => () => {},
+        getContent: () => this.config.editorContext?.getContent() ?? '',
+        setContent: (content) => this.config.editorContext?.setContent(content),
+        getSelection: () => this.config.editorContext?.getSelection() ?? { start: 0, end: 0, text: '' },
+        setSelection: (start, end) => this.config.editorContext?.setSelection(start, end),
+        insertText: (text) => this.config.editorContext?.insertText(text),
+        onContentChange: (callback) => this.config.editorContext?.onContentChange(callback) ?? (() => {}),
       },
 
       commands: {
@@ -390,14 +479,27 @@ export class PluginManager {
 
       notifications: {
         show: (message, type = 'info') => {
-          // 集成 toast
-          console.log(`[${type}] ${message}`);
+          if (this.config.onNotification) {
+            this.config.onNotification(message, type);
+          } else {
+            pluginLogger.info(`[${type}] ${message}`);
+          }
         },
       },
 
       ai: {
-        complete: async () => '',
-        streamComplete: async () => {},
+        complete: async (prompt, options) => {
+          if (this.config.aiContext) {
+            return this.config.aiContext.complete(prompt, options);
+          }
+          throw new Error('AI context not configured');
+        },
+        streamComplete: async (prompt, onChunk, options) => {
+          if (this.config.aiContext) {
+            return this.config.aiContext.streamComplete(prompt, onChunk, options);
+          }
+          throw new Error('AI context not configured');
+        },
       },
 
       network: {
@@ -418,16 +520,15 @@ export class PluginManager {
     };
   }
 
-  private async loadPluginModule(manifest: PluginManifest): Promise<PluginModule> {
-    // 在实际实现中，这里应该动态加载插件代码
-    // 当前返回一个空模块作为示例
-    return manifest as PluginModule;
-  }
-
-  private async requestPermissions(permissions: PluginPermission[]): Promise<boolean> {
-    // 在实际实现中，应该弹出权限请求对话框
-    // 当前默认授权
-    console.log('Requesting permissions:', permissions);
+  private async requestPermissions(
+    pluginId: string,
+    pluginName: string,
+    permissions: PluginPermission[]
+  ): Promise<boolean> {
+    if (this.config.onPermissionRequest) {
+      return this.config.onPermissionRequest(pluginId, pluginName, permissions);
+    }
+    // 默认授权
     return true;
   }
 
@@ -438,6 +539,18 @@ export class PluginManager {
         settings[setting.key] = setting.default;
       }
     }
+    
+    // 尝试从 localStorage 加载已保存的设置
+    const savedSettings = localStorage.getItem(`plugin:${manifest.id}:settings`);
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        Object.assign(settings, parsed);
+      } catch {
+        // 忽略解析错误
+      }
+    }
+    
     return settings;
   }
 

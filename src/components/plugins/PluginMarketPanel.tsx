@@ -38,86 +38,16 @@ import {
   Music,
   Database,
   Globe,
-  AlertTriangle,
-  Info,
 } from 'lucide-react';
-import { pluginManager, type PluginInstance, type PluginManifest } from '@/lib/plugins/manager';
+import { pluginManager, type PluginInstance, type PluginManifest, type PluginPermission } from '@/lib/plugins/manager';
+import { builtInPlugins, registerBuiltInPlugins } from '@/lib/plugins/built-in';
+import { PermissionRequestDialog } from './PermissionRequestDialog';
 import { toast } from 'sonner';
 
 interface PluginMarketPanelProps {
   open: boolean;
   onClose: () => void;
 }
-
-// 示例插件列表（实际应从插件市场 API 获取）
-const SAMPLE_PLUGINS: PluginManifest[] = [
-  {
-    id: 'word-counter',
-    name: '字数统计',
-    version: '1.0.0',
-    description: '实时统计文档字数、字符数、段落数',
-    author: 'Therex Team',
-    main: 'word-counter.js',
-    icon: 'FileText',
-    permissions: ['editor'],
-    keywords: ['统计', '字数', 'counter'],
-  },
-  {
-    id: 'code-highlight',
-    name: '代码高亮增强',
-    version: '1.2.0',
-    description: '为代码块提供更丰富的语法高亮和行号显示',
-    author: 'Therex Team',
-    main: 'code-highlight.js',
-    icon: 'Code',
-    permissions: ['editor', 'storage'],
-    keywords: ['代码', '高亮', 'syntax'],
-  },
-  {
-    id: 'image-compressor',
-    name: '图片压缩',
-    version: '1.0.0',
-    description: '自动压缩上传的图片，减少存储空间占用',
-    author: 'Therex Team',
-    main: 'image-compressor.js',
-    icon: 'Image',
-    permissions: ['storage', 'files'],
-    keywords: ['图片', '压缩', '优化'],
-  },
-  {
-    id: 'mermaid-renderer',
-    name: 'Mermaid 图表',
-    version: '2.0.0',
-    description: '支持 Mermaid 语法渲染流程图、时序图等',
-    author: 'Therex Team',
-    main: 'mermaid-renderer.js',
-    icon: 'Sparkles',
-    permissions: ['editor', 'network'],
-    keywords: ['mermaid', '图表', '流程图'],
-  },
-  {
-    id: 'ai-translator',
-    name: 'AI 翻译助手',
-    version: '1.5.0',
-    description: '使用 AI 自动翻译选中文本到多种语言',
-    author: 'Therex Team',
-    main: 'ai-translator.js',
-    icon: 'Globe',
-    permissions: ['ai', 'editor', 'clipboard'],
-    keywords: ['翻译', 'AI', '多语言'],
-  },
-  {
-    id: 'focus-mode',
-    name: '专注模式',
-    version: '1.0.0',
-    description: '隐藏界面干扰元素，提供沉浸式写作体验',
-    author: 'Therex Team',
-    main: 'focus-mode.js',
-    icon: 'Shield',
-    permissions: ['editor'],
-    keywords: ['专注', '沉浸', '写作'],
-  },
-];
 
 // 图标映射
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -178,6 +108,40 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
   const [loading, setLoading] = useState(false);
   const [loadingPluginId, setLoadingPluginId] = useState<string | null>(null);
 
+  // 权限请求对话框状态
+  const [permissionDialog, setPermissionDialog] = useState<{
+    open: boolean;
+    pluginId: string;
+    pluginName: string;
+    permissions: PluginPermission[];
+    resolve: (granted: boolean) => void;
+  } | null>(null);
+
+  // 初始化内置插件（仅首次）
+  useEffect(() => {
+    registerBuiltInPlugins();
+  }, []);
+
+  // 配置插件管理器
+  useEffect(() => {
+    pluginManager.configure({
+      onPermissionRequest: async (pluginId, pluginName, permissions) => {
+        return new Promise((resolve) => {
+          setPermissionDialog({
+            open: true,
+            pluginId,
+            pluginName,
+            permissions,
+            resolve,
+          });
+        });
+      },
+      onNotification: (message, type) => {
+        toast[type](message);
+      },
+    });
+  }, []);
+
   // 加载已安装插件
   const loadPlugins = useCallback(() => {
     const installed = pluginManager.getPlugins();
@@ -194,13 +158,15 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
   // 过滤插件列表 - 使用 useMemo 优化性能
   const filteredMarketPlugins = useMemo(() => {
     const installedIds = new Set(plugins.map(p => p.manifest.id));
-    return SAMPLE_PLUGINS.filter(
-      (p) =>
-        !installedIds.has(p.id) &&
-        (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.keywords?.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase())))
-    );
+    return builtInPlugins
+      .map(p => p.manifest)
+      .filter(
+        (p) =>
+          !installedIds.has(p.id) &&
+          (p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.keywords?.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase())))
+      );
   }, [plugins, searchQuery]);
 
   const filteredInstalledPlugins = useMemo(() => {
@@ -210,6 +176,21 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
         p.manifest.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [plugins, searchQuery]);
+
+  // 处理权限请求
+  const handlePermissionAllow = useCallback(() => {
+    if (permissionDialog) {
+      permissionDialog.resolve(true);
+      setPermissionDialog(null);
+    }
+  }, [permissionDialog]);
+
+  const handlePermissionDeny = useCallback(() => {
+    if (permissionDialog) {
+      permissionDialog.resolve(false);
+      setPermissionDialog(null);
+    }
+  }, [permissionDialog]);
 
   // 切换插件状态
   const handleTogglePlugin = useCallback(async (pluginId: string, currentStatus: string) => {
@@ -234,14 +215,27 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
   const handleInstallPlugin = useCallback(async (manifest: PluginManifest) => {
     setLoadingPluginId(manifest.id);
     try {
-      const success = await pluginManager.register(manifest);
-      if (success) {
+      // 查找对应的内置插件定义
+      const builtInPlugin = builtInPlugins.find(p => p.manifest.id === manifest.id);
+      
+      if (builtInPlugin) {
+        // 直接注册内置插件
+        pluginManager.registerBuiltIn(builtInPlugin);
         await pluginManager.activate(manifest.id);
         toast.success(`已安装 ${manifest.name}`);
         loadPlugins();
         setActiveTab('installed');
       } else {
-        toast.error('安装失败');
+        // 外部插件通过 manifest 注册
+        const success = await pluginManager.register(manifest);
+        if (success) {
+          await pluginManager.activate(manifest.id);
+          toast.success(`已安装 ${manifest.name}`);
+          loadPlugins();
+          setActiveTab('installed');
+        } else {
+          toast.error('安装失败：权限被拒绝');
+        }
       }
     } catch (error) {
       toast.error('安装失败');
@@ -377,108 +371,109 @@ export function PluginMarketPanel({ open, onClose }: PluginMarketPanelProps) {
   }, [loadingPluginId, handleInstallPlugin]);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-6 pb-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Puzzle className="h-5 w-5 text-primary" />
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="p-6 pb-4 border-b border-border shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Puzzle className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">插件管理</DialogTitle>
+                <DialogDescription className="text-sm mt-0.5">
+                  浏览、安装和管理编辑器插件
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-lg">插件管理</DialogTitle>
-              <DialogDescription className="text-sm mt-0.5">
-                浏览、安装和管理编辑器插件
-              </DialogDescription>
+          </DialogHeader>
+
+          {/* 搜索栏 */}
+          <div className="p-4 border-b border-border shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索插件..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
             </div>
           </div>
-        </DialogHeader>
 
-        {/* 演示模式提示 */}
-        <div className="px-6 pt-4 shrink-0">
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-            <Info className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                插件系统演示模式
-              </p>
+          {/* 选项卡 */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <TabsList className="mx-6 mt-4 shrink-0">
+              <TabsTrigger value="installed" className="gap-2">
+                <Puzzle className="h-4 w-4" />
+                已安装 ({plugins.length})
+              </TabsTrigger>
+              <TabsTrigger value="market" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                插件市场
+              </TabsTrigger>
+            </TabsList>
+
+            {/* 已安装插件 */}
+            <TabsContent value="installed" className="flex-1 m-0 min-h-0 data-[state=inactive]:hidden">
+              <ScrollArea className="h-[350px]">
+                <div className="p-6 pt-4 space-y-4">
+                  {filteredInstalledPlugins.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Puzzle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>暂无已安装的插件</p>
+                      <p className="text-sm mt-1">前往插件市场浏览可用插件</p>
+                    </div>
+                  ) : (
+                    filteredInstalledPlugins.map(renderInstalledPlugin)
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            {/* 插件市场 */}
+            <TabsContent value="market" className="flex-1 m-0 min-h-0 data-[state=inactive]:hidden">
+              <ScrollArea className="h-[350px]">
+                <div className="p-6 pt-4 space-y-4">
+                  {filteredMarketPlugins.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>未找到匹配的插件</p>
+                    </div>
+                  ) : (
+                    filteredMarketPlugins.map(renderMarketPlugin)
+                  )}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="p-4 border-t border-border shrink-0">
+            <div className="flex items-center justify-between w-full">
               <p className="text-xs text-muted-foreground">
-                当前为演示模式，插件安装后会被记录但不会实际执行插件代码。完整功能将在后续版本中开放。
+                {plugins.filter(p => p.status === 'active').length} 个插件已启用
               </p>
+              <Button variant="outline" onClick={onClose}>
+                关闭
+              </Button>
             </div>
-          </div>
-        </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* 搜索栏 */}
-        <div className="p-4 border-b border-border shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜索插件..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        {/* 选项卡 */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-6 mt-4 shrink-0">
-            <TabsTrigger value="installed" className="gap-2">
-              <Puzzle className="h-4 w-4" />
-              已安装 ({plugins.length})
-            </TabsTrigger>
-            <TabsTrigger value="market" className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              插件市场
-            </TabsTrigger>
-          </TabsList>
-
-          {/* 已安装插件 */}
-          <TabsContent value="installed" className="flex-1 m-0 min-h-0 data-[state=inactive]:hidden">
-            <ScrollArea className="h-[350px]">
-              <div className="p-6 pt-4 space-y-4">
-                {filteredInstalledPlugins.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Puzzle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>暂无已安装的插件</p>
-                    <p className="text-sm mt-1">前往插件市场浏览可用插件</p>
-                  </div>
-                ) : (
-                  filteredInstalledPlugins.map(renderInstalledPlugin)
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* 插件市场 */}
-          <TabsContent value="market" className="flex-1 m-0 min-h-0 data-[state=inactive]:hidden">
-            <ScrollArea className="h-[350px]">
-              <div className="p-6 pt-4 space-y-4">
-                {filteredMarketPlugins.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>未找到匹配的插件</p>
-                  </div>
-                ) : (
-                  filteredMarketPlugins.map(renderMarketPlugin)
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="p-4 border-t border-border shrink-0">
-          <div className="flex items-center justify-between w-full">
-            <p className="text-xs text-muted-foreground">
-              插件运行在沙箱环境中，请放心使用
-            </p>
-            <Button variant="outline" onClick={onClose}>
-              关闭
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {/* 权限请求对话框 */}
+      <PermissionRequestDialog
+        open={permissionDialog?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) {
+            handlePermissionDeny();
+          }
+        }}
+        pluginName={permissionDialog?.pluginName ?? ''}
+        permissions={permissionDialog?.permissions ?? []}
+        onAllow={handlePermissionAllow}
+        onDeny={handlePermissionDeny}
+      />
+    </>
   );
 }

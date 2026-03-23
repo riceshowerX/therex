@@ -154,6 +154,7 @@ import { shareManager } from '@/lib/share';
 import { cloudSyncManager, type SyncStatus } from '@/lib/sync';
 import { extendedProviderPresets, type ExtendedAIProvider } from '@/lib/ai-providers';
 import { PluginMarketPanel } from '@/components/plugins/PluginMarketPanel';
+import { pluginManager } from '@/lib/plugins/manager';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -316,6 +317,68 @@ export default function MarkdownEditor() {
     } else {
       handleCreateDocument();
     }
+
+    // 配置插件管理器
+    pluginManager.configure({
+      editorContext: {
+        getContent: () => content,
+        setContent: (newContent) => setContent(newContent),
+        getSelection: () => {
+          // 简化实现，返回全文选中
+          return { start: 0, end: content.length, text: content };
+        },
+        setSelection: () => {
+          // 编辑器选区操作
+        },
+        insertText: (text) => {
+          setContent(prev => prev + text);
+        },
+        onContentChange: (callback) => {
+          // 返回一个清理函数
+          return () => {};
+        },
+      },
+      aiContext: {
+        complete: async (prompt, options) => {
+          // 调用 AI API
+          const response = await fetch('/api/ai-assist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, systemPrompt: options?.systemPrompt }),
+          });
+          
+          if (!response.ok) {
+            throw new Error('AI 服务请求失败');
+          }
+          
+          const data = await response.json();
+          return data.response || data.content || '';
+        },
+        streamComplete: async (prompt, onChunk, options) => {
+          // 流式响应
+          const response = await fetch('/api/ai-assist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, systemPrompt: options?.systemPrompt, stream: true }),
+          });
+          
+          if (!response.ok || !response.body) {
+            throw new Error('AI 服务请求失败');
+          }
+          
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            onChunk(chunk);
+          }
+        },
+      },
+    });
 
     // 初始化云端同步状态监听
     const unsubSync = cloudSyncManager.onStatusChange((status) => {
@@ -2854,6 +2917,7 @@ ${content}
         onClose={() => setShowCollaboration(false)}
         documentId={currentDoc?.id || ''}
         documentTitle={title}
+        documentContent={content}
         onCollaboratorCursor={(userId, cursor) => {
           console.log('Collaborator cursor:', userId, cursor);
         }}

@@ -22,27 +22,26 @@ import { cn } from '@/lib/utils';
 import {
   Users,
   User,
-  Link2,
   Copy,
   Check,
   Wifi,
   WifiOff,
-  Crown,
-  MessageSquare,
   Eye,
   MousePointer,
   UserPlus,
   Loader2,
-  AlertTriangle,
+  ExternalLink,
 } from 'lucide-react';
 import { getCollaborationManager, type CollaborationManager } from '@/lib/collaboration/manager';
 import type { Collaborator, CursorPosition, SelectionRange } from '@/lib/collaboration/types';
+import { toast } from 'sonner';
 
 interface CollaborationPanelProps {
   open: boolean;
   onClose: () => void;
   documentId: string;
   documentTitle: string;
+  documentContent: string;
   onCollaboratorCursor?: (userId: string, cursor: CursorPosition) => void;
   onCollaboratorSelection?: (userId: string, selection: SelectionRange | null) => void;
   onOperationReceived?: (operation: unknown) => void;
@@ -53,6 +52,7 @@ export function CollaborationPanel({
   onClose,
   documentId,
   documentTitle,
+  documentContent,
   onCollaboratorCursor,
   onCollaboratorSelection,
   onOperationReceived,
@@ -62,44 +62,66 @@ export function CollaborationPanel({
   const [isConnected, setIsConnected] = useState(false);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [roomId, setRoomId] = useState<string | null>(null);
   const [manager] = useState<CollaborationManager>(() => getCollaborationManager());
 
   // 生成邀请链接
   const inviteLink = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    const roomId = `${documentId}-${Date.now().toString(36)}`;
-    return `${window.location.origin}/collab/${roomId}`;
-  }, [documentId]);
+    if (!roomId) return '';
+    return `${typeof window !== 'undefined' ? window.location.origin : ''}/collab/${roomId}`;
+  }, [roomId]);
 
-  // 加入协作
-  const handleJoin = useCallback(async () => {
-    if (!userName.trim()) return;
-    
+  // 创建并加入房间
+  const handleCreateRoom = useCallback(async () => {
+    if (!userName.trim()) {
+      toast.error('请输入你的名字');
+      return;
+    }
+
     setIsJoining(true);
     try {
-      await manager.joinRoom(`${documentId}-room`, documentId, userName.trim());
+      const result = await manager.createRoom(
+        documentId,
+        documentTitle,
+        documentContent,
+        userName.trim()
+      );
+
+      setRoomId(result.roomId);
       setIsConnected(true);
+      toast.success('已创建协作房间');
     } catch (error) {
-      console.error('Failed to join collaboration:', error);
+      toast.error(error instanceof Error ? error.message : '创建房间失败');
     } finally {
       setIsJoining(false);
     }
-  }, [manager, documentId, userName]);
+  }, [manager, documentId, documentTitle, documentContent, userName]);
 
   // 离开协作
   const handleLeave = useCallback(async () => {
     await manager.leaveRoom();
     setIsConnected(false);
     setCollaborators([]);
+    setRoomId(null);
     onClose();
   }, [manager, onClose]);
 
   // 复制邀请链接
   const handleCopyInvite = useCallback(() => {
-    navigator.clipboard.writeText(inviteLink);
+    const fullLink = `${inviteLink}?name=${encodeURIComponent(userName)}`;
+    navigator.clipboard.writeText(fullLink);
     setInviteCopied(true);
+    toast.success('链接已复制');
     setTimeout(() => setInviteCopied(false), 2000);
-  }, [inviteLink]);
+  }, [inviteLink, userName]);
+
+  // 打开协作页面
+  const handleOpenCollabPage = useCallback(() => {
+    if (roomId) {
+      const url = `/collab/${roomId}?name=${encodeURIComponent(userName)}`;
+      window.open(url, '_blank');
+    }
+  }, [roomId, userName]);
 
   // 设置事件监听
   useEffect(() => {
@@ -108,6 +130,7 @@ export function CollaborationPanel({
     unsubscribers.push(
       manager.on('connected', () => {
         setIsConnected(true);
+        setCollaborators(manager.getCollaborators());
       })
     );
 
@@ -156,14 +179,6 @@ export function CollaborationPanel({
     };
   }, [manager, onCollaboratorCursor, onCollaboratorSelection, onOperationReceived]);
 
-  // 获取活跃状态
-  const getActiveStatus = (lastActive: number) => {
-    const diff = Date.now() - lastActive;
-    if (diff < 60000) return 'active';
-    if (diff < 300000) return 'idle';
-    return 'away';
-  };
-
   // 格式化时间
   const formatLastActive = (lastActive: number) => {
     const diff = Date.now() - lastActive;
@@ -171,9 +186,6 @@ export function CollaborationPanel({
     if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
     return `${Math.floor(diff / 3600000)} 小时前`;
   };
-
-  // 服务是否可用（当前 WebSocket 服务器未部署）
-  const isServiceAvailable = false;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -189,21 +201,6 @@ export function CollaborationPanel({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* 服务不可用提示 */}
-          {!isServiceAvailable && (
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                  协作服务暂未开放
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  实时协作功能需要部署 WebSocket 服务器支持，当前版本暂未开放此功能。敬请期待后续更新！
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* 连接状态 */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
             <div className="flex items-center gap-2">
@@ -224,7 +221,7 @@ export function CollaborationPanel({
             </Badge>
           </div>
 
-          {/* 未连接时显示加入表单 */}
+          {/* 未连接时显示创建表单 */}
           {!isConnected && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -233,24 +230,23 @@ export function CollaborationPanel({
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="输入你的名字"
-                  onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                  disabled={!isServiceAvailable}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
                 />
               </div>
               <Button 
-                onClick={handleJoin} 
-                disabled={!userName.trim() || isJoining || !isServiceAvailable}
+                onClick={handleCreateRoom} 
+                disabled={!userName.trim() || isJoining}
                 className="w-full"
               >
                 {isJoining ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    连接中...
+                    创建房间中...
                   </>
                 ) : (
                   <>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    加入协作
+                    创建协作房间
                   </>
                 )}
               </Button>
@@ -273,6 +269,9 @@ export function CollaborationPanel({
                     )}
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  复制链接分享给其他人，他们可以加入协作
+                </p>
               </div>
 
               {/* 协作者列表 */}
@@ -317,6 +316,12 @@ export function CollaborationPanel({
                   </div>
                 </ScrollArea>
               </div>
+
+              {/* 打开完整协作页面 */}
+              <Button variant="outline" onClick={handleOpenCollabPage} className="w-full">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                打开协作页面
+              </Button>
             </>
           )}
         </div>
