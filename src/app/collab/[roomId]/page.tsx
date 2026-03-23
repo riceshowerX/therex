@@ -10,8 +10,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import {
   Users,
@@ -24,6 +25,8 @@ import {
   ArrowLeft,
   AlertCircle,
   Edit3,
+  RefreshCw,
+  Home,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -65,7 +68,10 @@ export default function CollaborationPage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 从 URL 参数获取用户名
+  // 从 URL 参数获取用户名和文档信息
+  const docTitle = searchParams.get('title') || '协作文档';
+  const docContent = searchParams.get('content') || '';
+
   useEffect(() => {
     const nameFromUrl = searchParams.get('name');
     if (nameFromUrl) {
@@ -92,6 +98,41 @@ export default function CollaborationPage() {
       setLoading(false);
     }
   }, [roomId]);
+
+  // 创建新房间（当房间不存在时）
+  const handleCreateNewRoom = useCallback(async () => {
+    if (!userName.trim()) {
+      toast.error('请输入你的名字');
+      return;
+    }
+
+    setJoining(true);
+    try {
+      const response = await fetch('/api/collaboration/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: `doc-${Date.now()}`,
+          documentTitle: docTitle,
+          documentContent: docContent || '# 开始协作\n\n这是一个新的协作文档。',
+          userName: userName.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 跳转到新房间
+        router.push(`/collab/${data.room.id}?name=${encodeURIComponent(userName)}`);
+      } else {
+        toast.error(data.error || '创建房间失败');
+      }
+    } catch {
+      toast.error('创建房间失败');
+    } finally {
+      setJoining(false);
+    }
+  }, [userName, docTitle, docContent, router]);
 
   // 加入房间
   const handleJoin = useCallback(async () => {
@@ -175,7 +216,6 @@ export default function CollaborationPage() {
           case 'heartbeat':
             setCollaborators(data.collaborators);
             if (room && data.documentVersion > room.documentVersion) {
-              // 版本更新，需要同步
               fetchRoom();
             }
             break;
@@ -244,15 +284,12 @@ export default function CollaborationPage() {
     const content = e.target.value;
     setDocumentContent(content);
 
-    // 更新输入状态
     updateTypingStatus(true);
 
-    // 清除之前的超时
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // 停止输入后同步
     typingTimeoutRef.current = setTimeout(() => {
       updateTypingStatus(false);
       syncContent(content);
@@ -281,22 +318,68 @@ export default function CollaborationPage() {
     );
   }
 
-  // 房间不存在
+  // 房间不存在 - 显示创建新房间的选项
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
+            <CardTitle className="text-amber-600 flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
-              无法加入协作
+              房间不存在
             </CardTitle>
+            <CardDescription>
+              该协作房间可能已过期或从未创建。您可以创建一个新房间继续协作。
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground">{error}</p>
-            <Button onClick={() => router.push('/')} className="w-full">
-              返回首页
-            </Button>
+            <Alert>
+              <AlertDescription className="text-sm">
+                协作房间在创建者关闭后会自动清理。如果房间已过期，请让创建者重新分享链接。
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">你的名字</label>
+              <Input
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="输入你的名字"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">文档标题（可选）</label>
+              <Input
+                value={docTitle}
+                onChange={(e) => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('title', e.target.value);
+                  window.history.replaceState({}, '', url.toString());
+                }}
+                placeholder="文档标题"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleCreateNewRoom} disabled={!userName.trim() || joining}>
+                {joining ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    创建中...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    创建新房间
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/')}>
+                <Home className="h-4 w-4 mr-2" />
+                返回首页
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -403,10 +486,10 @@ export default function CollaborationPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <textarea
+                  <Textarea
                     value={documentContent}
                     onChange={handleContentChange}
-                    className="w-full h-[500px] p-4 rounded-lg border border-input bg-background font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="min-h-[500px] font-mono text-sm resize-none"
                     placeholder="开始编写你的文档..."
                   />
                 </CardContent>
