@@ -30,4 +30,5 @@ echo "Clearing port ${PORT} before start."
 kill_port_if_listening
 echo "Starting HTTP service on port ${PORT} for dev..."
 
-npx next dev --webpack --port $PORT
+# 使用 pnpm exec 确保使用项目安装的 Next.js 版本
+pnpm exec next dev --port $PORT

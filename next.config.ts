@@ -31,7 +31,9 @@ const nextConfig: NextConfig = {
   cacheMaxMemorySize: 100 * 1024 * 1024,
 
   // 启用 Turbopack 配置以兼容 Next.js 16
-  turbopack: {},
+  turbopack: {
+    root: __dirname,
+  },
 
   // 实验性功能
   experimental: {

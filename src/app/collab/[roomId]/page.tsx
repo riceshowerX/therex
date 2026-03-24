@@ -85,7 +85,7 @@ export default function CollaborationPage() {
       const response = await fetch(`/api/collaboration/room/${roomId}`);
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setRoom(data.room);
         setDocumentContent(data.room.documentContent);
         setError(null);
