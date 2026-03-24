@@ -6,7 +6,7 @@
  * 允许用户选择和配置存储后端
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -213,17 +213,24 @@ export function StorageSettings() {
     setIsMigrating(true);
     setMigrationProgress(0);
 
+    // 使用 ref 跟踪定时器，确保在任何情况下都能清理
+    const progressIntervalId = { current: null as ReturnType<typeof setInterval> | null };
+
     try {
       const manager = getStorageManager();
       
       // 模拟进度
-      const progressInterval = setInterval(() => {
+      progressIntervalId.current = setInterval(() => {
         setMigrationProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
       const result = await manager.migrateTo(pendingConfig.provider, pendingConfig);
       
-      clearInterval(progressInterval);
+      // 清理定时器
+      if (progressIntervalId.current) {
+        clearInterval(progressIntervalId.current);
+        progressIntervalId.current = null;
+      }
       setMigrationProgress(100);
 
       if (result.failed === 0) {
@@ -234,8 +241,17 @@ export function StorageSettings() {
 
       setShowMigrateDialog(false);
     } catch (error) {
+      // 确保清理定时器
+      if (progressIntervalId.current) {
+        clearInterval(progressIntervalId.current);
+        progressIntervalId.current = null;
+      }
       toast.error('迁移失败，请重试');
     } finally {
+      // 双重保险，确保定时器被清理
+      if (progressIntervalId.current) {
+        clearInterval(progressIntervalId.current);
+      }
       setIsMigrating(false);
       setMigrationProgress(0);
     }
