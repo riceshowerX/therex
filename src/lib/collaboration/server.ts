@@ -303,3 +303,42 @@ export function exportRoom(roomId: string): object | null {
     createdAt: room.createdAt,
   };
 }
+
+// 定时清理机制
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * 启动定时清理任务
+ * 每小时清理一次过期房间
+ */
+export function startCleanupScheduler(): void {
+  if (cleanupInterval) return; // 避免重复启动
+  
+  // 每小时执行一次清理
+  cleanupInterval = setInterval(() => {
+    const cleaned = cleanupExpiredRooms();
+    if (cleaned > 0) {
+      console.log(`[Collaboration] Cleaned ${cleaned} expired rooms`);
+    }
+  }, 60 * 60 * 1000); // 1 小时
+}
+
+/**
+ * 停止定时清理任务
+ */
+export function stopCleanupScheduler(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+}
+
+/**
+ * 获取房间统计信息
+ */
+export function getStats(): { totalRooms: number; totalUsers: number } {
+  return {
+    totalRooms: rooms.size,
+    totalUsers: userRooms.size,
+  };
+}
