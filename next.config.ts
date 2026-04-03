@@ -72,7 +72,7 @@ const nextConfig: NextConfig = {
   },
 
   // Webpack 配置
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config: Record<string, unknown>, { isServer, dev }: { isServer: boolean; dev: boolean }) => {
     // 服务端配置
     if (isServer) {
       config.externals = config.externals || [];
@@ -82,7 +82,7 @@ const nextConfig: NextConfig = {
     if (!dev) {
       // 启用 Tree Shaking
       config.optimization = {
-        ...config.optimization,
+        ...(config.optimization as Record<string, unknown>),
         usedExports: true,
         sideEffects: true,
       };

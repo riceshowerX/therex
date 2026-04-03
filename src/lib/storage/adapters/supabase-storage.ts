@@ -355,7 +355,7 @@ export class SupabaseStorageAdapter implements IStorageAdapter {
   async updateFolder(id: string, updates: Partial<StorageFolder>): Promise<StorageFolder | null> {
     const client = this.getClient();
     
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.parentId !== undefined) updateData.parent_id = updates.parentId;
     if (updates.color !== undefined) updateData.color = updates.color;

@@ -274,15 +274,17 @@ export const performanceMonitor = PerformanceMonitor.getInstance();
 /**
  * 性能测量装饰器（用于类方法）
  */
-export function measurePerformance(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function measurePerformance(target: object, propertyKey: string, descriptor: PropertyDescriptor) {
   const originalMethod = descriptor.value;
 
-  descriptor.value = function (...args: any[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  descriptor.value = function (this: object, ...args: unknown[]): unknown {
     const start = performance.now();
-    const result = originalMethod.apply(this, args);
+    const result = originalMethod.apply(this, args) as unknown;
     const end = performance.now();
     
-    performanceMonitor.recordComponentRender(`${target.constructor.name}.${propertyKey}`, end - start);
+    performanceMonitor.recordComponentRender(`${(target as { constructor: { name: string } }).constructor.name}.${propertyKey}`, end - start);
     
     return result;
   };
@@ -335,6 +337,7 @@ export const cancelIdleCallback =
 /**
  * 节流函数 - 用于滚动等高频事件
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -342,6 +345,7 @@ export function throttle<T extends (...args: any[]) => any>(
   let inThrottle = false;
   let lastArgs: Parameters<T> | null = null;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (this: any, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args);
@@ -362,6 +366,7 @@ export function throttle<T extends (...args: any[]) => any>(
 /**
  * 防抖函数 - 用于搜索输入等场景
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number,
@@ -369,6 +374,7 @@ export function debounce<T extends (...args: any[]) => any>(
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (this: any, ...args: Parameters<T>) {
     const later = () => {
       timeout = null;

@@ -108,6 +108,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^16.2.2",
     "@playwright/test": "^1.58.2",
     "@react-dev-inspector/babel-plugin": "^2.0.1",
     "@react-dev-inspector/middleware": "^2.0.1",
@@ -121,14 +122,17 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "16.1.7",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.5.14",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^29.0.0",
     "only-allow": "^1.2.2",
     "react-dev-inspector": "^2.0.1",
     "shadcn": "latest",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.58.0",
     "vitest": "^4.1.0"
   },
   "packageManager": "pnpm@9.0.0",
@@ -137,6 +141,8 @@
   },
   "pnpm": {
     "overrides": {
+      "@eslint/eslintrc>ajv": "6.12.6",
+      "eslint>ajv": "6.12.6",
       "esbuild": "^0.25.12",
       "minimatch": "^10.2.1",
       "@isaacs/brace-expansion": "^5.0.1",

@@ -301,6 +301,15 @@ export function TouchFeedback({
   const [isActive, setIsActive] = useState(false);
   const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+  
   const handleTouchStart = useCallback(() => {
     if (disabled) return;
     setIsActive(true);

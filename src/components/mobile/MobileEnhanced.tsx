@@ -151,6 +151,15 @@ export function useGestures(callbacks: GestureCallbacks, options?: {
     touchStartRef.current = null;
   }, [callbacks, config.swipeThreshold, config.swipeTimeout]);
 
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
   return {
     onTouchStart: handleTouchStart,
     onTouchMove: handleTouchMove,
