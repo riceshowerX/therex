@@ -1,0 +1,31 @@
+module.exports = {
+  root: true,
+  extends: ["next/core-web-vitals", "plugin:@typescript-eslint/recommended"],
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint"],
+  rules: {
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+    ],
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "no-console": ["warn", { allow: ["warn", "error"] }],
+  },
+  ignorePatterns: [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "dist/**",
+    "next-env.d.ts",
+    "node_modules/**",
+    "public/**",
+    ".cozeproj/**",
+    "coverage/**",
+    "*.min.js",
+    "scripts/**",
+  ],
+};
