@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private logErrorToService(error: Error, errorInfo: ErrorInfo) {
-    // 错误上报逻辑（可以集成 Sentry 等服务）
+    // 错误上报逻辑
     const errorData = {
       message: error.message,
       stack: error.stack,
@@ -50,14 +50,8 @@ export class ErrorBoundary extends Component<Props, State> {
       url: typeof window !== 'undefined' ? window.location.href : 'unknown',
     };
 
-    // 示例：发送到后端日志服务
-    if (process.env.NODE_ENV === 'production') {
-      fetch('/api/log-error', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorData),
-      }).catch(console.error);
-    }
+    // 生产环境使用 console.error 记录（后续可接入 Sentry 等服务）
+    console.error('[ErrorBoundary] Uncaught error:', errorData);
   }
 
   private handleRetry = () => {

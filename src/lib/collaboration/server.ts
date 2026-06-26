@@ -2,7 +2,11 @@
  * 协作服务器端逻辑
  * 使用内存存储管理协作房间和用户
  * 
- * 注意：此模块用于 API Routes，不是 Server Actions
+ * 限制说明：
+ * - 此模块仅适用于单进程开发环境，多进程部署需改用 Redis/数据库持久化
+ * - 房间上限 MAX_ROOMS，防止内存泄漏
+ * - 用户每分钟创建房间上限 RATE_LIMIT_ROOMS_PER_USER，防止滥用
+ * - cleanupScheduler 在模块加载时自动启动
  */
 
 import { randomUUID } from 'crypto';
@@ -51,6 +55,13 @@ const USER_COLORS = [
 const rooms = new Map<string, ServerRoom>();
 const userRooms = new Map<string, Set<string>>(); // userId -> roomIds
 
+// 安全限制
+const MAX_ROOMS = 100; // 最大房间数
+const MAX_OPERATIONS_PER_ROOM = 100; // 每个房间最大操作数
+const RATE_LIMIT_ROOMS_PER_USER = 5; // 每用户最多创建房间数
+const RATE_LIMIT_WINDOW = 60 * 1000; // 速率限制窗口（1分钟）
+const userRoomCreationLog = new Map<string, number[]>(); // userId -> 创建时间戳列表
+
 // 生成房间 ID
 export function generateRoomId(): string {
   return randomUUID().substring(0, 8);
@@ -67,7 +78,22 @@ export function createRoom(
   documentTitle: string,
   documentContent: string,
   creatorName: string
-): ServerRoom {
+): ServerRoom | { error: string } {
+  // 房间总数上限
+  if (rooms.size >= MAX_ROOMS) {
+    return { error: '房间数量已达上限，请稍后重试' };
+  }
+
+  // 用户速率限制
+  const now = Date.now();
+  const userCreationTimes = userRoomCreationLog.get(creatorName) || [];
+  const recentCreations = userCreationTimes.filter(t => now - t < RATE_LIMIT_WINDOW);
+  if (recentCreations.length >= RATE_LIMIT_ROOMS_PER_USER) {
+    return { error: '创建房间过于频繁，请稍后重试' };
+  }
+  recentCreations.push(now);
+  userRoomCreationLog.set(creatorName, recentCreations);
+
   const roomId = generateRoomId();
   const creatorId = randomUUID();
   
@@ -306,6 +332,7 @@ export function exportRoom(roomId: string): object | null {
 
 // 定时清理机制
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+let cleanupStarted = false;
 
 /**
  * 启动定时清理任务
@@ -320,7 +347,21 @@ export function startCleanupScheduler(): void {
     if (cleaned > 0) {
       console.log(`[Collaboration] Cleaned ${cleaned} expired rooms`);
     }
+    // 同时清理过期的速率限制记录
+    const now = Date.now();
+    for (const [user, times] of userRoomCreationLog.entries()) {
+      const recent = times.filter(t => now - t < RATE_LIMIT_WINDOW);
+      if (recent.length === 0) {
+        userRoomCreationLog.delete(user);
+      } else {
+        userRoomCreationLog.set(user, recent);
+      }
+    }
   }, 60 * 60 * 1000); // 1 小时
+
+  // 启动时立即清理一次
+  cleanupExpiredRooms();
+  cleanupStarted = true;
 }
 
 /**
@@ -331,6 +372,17 @@ export function stopCleanupScheduler(): void {
     clearInterval(cleanupInterval);
     cleanupInterval = null;
   }
+  cleanupStarted = false;
+}
+
+/**
+ * 自动启动清理（模块加载时调用一次）
+ */
+if (!cleanupStarted && typeof globalThis !== 'undefined') {
+  // 延迟启动，避免影响模块初始化
+  setTimeout(() => {
+    startCleanupScheduler();
+  }, 5000);
 }
 
 /**

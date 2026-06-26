@@ -2,6 +2,9 @@
  * AI 辅助 API
  *
  * 支持从数据库读取 AI 配置，并在服务端代理请求，避免暴露 API Key
+ * - 所有 AI 请求必须通过 configId 从数据库获取配置，不接受前端传入 apiKey
+ * - URL 白名单校验防止 SSRF 攻击
+ * - SSE 流式解析增加缓冲区处理，防止跨 chunk 数据丢失
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,7 +14,57 @@ import { defaultSystemPrompts } from '@/lib/ai-config';
 // 请求大小限制（1MB）
 const MAX_REQUEST_SIZE = 1 * 1024 * 1024;
 
-// AI 配置接口
+// 允许的 API 端点域名白名单
+const ALLOWED_API_DOMAINS = [
+  'ark.cn-beijing.volces.com',
+  'api.deepseek.com',
+  'api.openai.com',
+  'api.moonshot.cn',
+  'api.anthropic.com',
+  'generativelanguage.googleapis.com',
+  'aip.baidubce.com',
+  'dashscope.aliyuncs.com',
+  'open.bigmodel.cn',
+  'api.minimax.chat',
+  'api.baichuan-ai.com',
+];
+
+// 验证 URL 是否安全（防止 SSRF）
+function isUrlSafe(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    // 仅允许 HTTPS（开发环境可允许 HTTP）
+    if (url.protocol !== 'https:' && process.env.NODE_ENV !== 'development') {
+      return false;
+    }
+    // 检查是否为内网地址
+    const hostname = url.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname.startsWith('192.168.') ||
+      hostname.startsWith('10.') ||
+      hostname.startsWith('172.16.') ||
+      hostname === '169.254.169.254' ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.local')
+    ) {
+      return false;
+    }
+    // 检查域名白名单
+    const isAllowed = ALLOWED_API_DOMAINS.some(domain =>
+      hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+    if (isAllowed) return true;
+    // 自定义端点仅允许公网 HTTPS 域名
+    return url.protocol === 'https:' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+// AI 配置接口（仅服务端使用）
 interface AIRequestConfig {
   provider: string;
   apiKey: string;
@@ -24,10 +77,9 @@ interface AIRequestBody {
   action: string;
   content: string;
   selection?: string;
-  config?: AIRequestConfig;
+  configId?: string; // 使用数据库中的配置 ID（推荐）
   chatHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
   userMessage?: string;
-  configId?: string; // 使用数据库中的配置 ID
 }
 
 export async function POST(request: NextRequest) {
@@ -42,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: AIRequestBody = await request.json();
-    const { action, content, selection, config: customConfig, chatHistory, userMessage, configId } = body;
+    const { action, content, selection, chatHistory, userMessage, configId } = body;
 
     // 验证必要参数
     if (!action) {
@@ -52,9 +104,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 测试连接
+    // 测试连接（需要 configId 从数据库读取配置）
     if (action === 'test') {
-      return handleTestConnection(customConfig);
+      return handleTestConnection(configId);
     }
 
     if (!content && !selection && action !== 'chat') {
@@ -72,24 +124,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 优先使用数据库中的配置
-    if (configId) {
-      const dbConfig = await getAIConfigFromDB(configId);
-      if (dbConfig) {
-        return handleCustomAIRequest(action, content, selection, dbConfig, chatHistory, userMessage);
-      }
+    // 必须使用数据库中的配置（不再接受前端传入 apiKey）
+    if (!configId) {
+      return NextResponse.json(
+        { error: '请先在设置中配置 AI' },
+        { status: 400 }
+      );
     }
 
-    // 如果有自定义配置，使用自定义配置调用
-    if (customConfig?.apiKey) {
-      return handleCustomAIRequest(action, content, selection, customConfig, chatHistory, userMessage);
+    const dbConfig = await getAIConfigFromDB(configId);
+    if (!dbConfig) {
+      return NextResponse.json(
+        { error: 'AI 配置不存在或已失效，请重新配置' },
+        { status: 400 }
+      );
     }
 
-    // 否则返回错误，提示需要配置 AI
-    return NextResponse.json(
-      { error: '请先在设置中配置 AI，或提供 AI 配置' },
-      { status: 400 }
-    );
+    return handleCustomAIRequest(action, content, selection, dbConfig, chatHistory, userMessage);
   } catch (error) {
     console.error('AI API error:', error);
     
@@ -109,7 +160,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 从数据库获取 AI 配置
+ * 从数据库获取 AI 配置（snake_case 列名）
  */
 async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | null> {
   try {
@@ -121,9 +172,8 @@ async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | nu
     
     const { data: config, error } = await client
       .from('ai_configurations')
-      .select('provider, apiKey, apiEndpoint, model')
+      .select('provider, api_key, api_endpoint, model')
       .eq('id', configId)
-      .eq('user_id', 'default_user')
       .single();
 
     if (error || !config) {
@@ -133,8 +183,8 @@ async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | nu
 
     return {
       provider: config.provider,
-      apiKey: config.apiKey,
-      apiEndpoint: config.apiEndpoint,
+      apiKey: config.api_key,
+      apiEndpoint: config.api_endpoint,
       model: config.model,
     };
   } catch (error) {
@@ -144,10 +194,25 @@ async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | nu
 }
 
 // 处理测试连接
-async function handleTestConnection(config?: AIRequestConfig) {
-  if (!config?.apiKey) {
+async function handleTestConnection(configId?: string) {
+  if (!configId) {
     return NextResponse.json(
-      { error: '请提供 API Key' },
+      { error: '请先保存 AI 配置后再测试连接' },
+      { status: 400 }
+    );
+  }
+
+  const config = await getAIConfigFromDB(configId);
+  if (!config) {
+    return NextResponse.json(
+      { error: 'AI 配置不存在' },
+      { status: 400 }
+    );
+  }
+
+  if (!isUrlSafe(config.apiEndpoint)) {
+    return NextResponse.json(
+      { error: 'API 端点地址不安全，请检查配置' },
       { status: 400 }
     );
   }
@@ -175,7 +240,7 @@ async function handleTestConnection(config?: AIRequestConfig) {
         { status: 400 }
       );
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: '连接失败，请检查网络或端点地址' },
       { status: 400 }
@@ -199,13 +264,21 @@ async function handleCustomAIRequest(
     );
   }
 
+  // SSRF 防护：验证 API 端点
+  if (!isUrlSafe(config.apiEndpoint)) {
+    return NextResponse.json(
+      { error: 'API 端点地址不安全' },
+      { status: 400 }
+    );
+  }
+
   const { systemPrompt, userPrompt, messages: additionalMessages } = getPrompts(action, content, selection, chatHistory, userMessage);
 
   // 构建消息列表
   const messages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system' as const, content: systemPrompt },
     ...additionalMessages,
-    { role: 'user', content: userPrompt },
+    { role: 'user' as const, content: userPrompt },
   ];
 
   // 使用 OpenAI 兼容 API
@@ -243,16 +316,21 @@ async function handleCustomAIRequest(
         const decoder = new TextDecoder();
 
         if (reader) {
+          let buffer = ''; // 缓冲区处理跨 chunk 的数据
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            // 保留最后一个可能不完整的行
+            buffer = lines.pop() || '';
 
             for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+              const trimmed = line.trim();
+              if (trimmed.startsWith('data: ')) {
+                const data = trimmed.slice(6);
                 if (data === '[DONE]') {
                   controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                   continue;
@@ -260,14 +338,37 @@ async function handleCustomAIRequest(
 
                 try {
                   const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  if (content) {
+                  const delta = parsed.choices?.[0]?.delta?.content;
+                  if (delta) {
                     controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+                      encoder.encode(`data: ${JSON.stringify({ content: delta })}\n\n`)
                     );
                   }
                 } catch {
                   // 忽略解析错误
+                }
+              }
+            }
+          }
+
+          // 处理缓冲区剩余数据
+          if (buffer.trim()) {
+            const trimmed = buffer.trim();
+            if (trimmed.startsWith('data: ')) {
+              const data = trimmed.slice(6);
+              if (data === '[DONE]') {
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              } else {
+                try {
+                  const parsed = JSON.parse(data);
+                  const delta = parsed.choices?.[0]?.delta?.content;
+                  if (delta) {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ content: delta })}\n\n`)
+                    );
+                  }
+                } catch {
+                  // 忽略
                 }
               }
             }

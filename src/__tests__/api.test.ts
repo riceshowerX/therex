@@ -39,8 +39,9 @@ describe('API 接口测试', () => {
           cursorPosition: 0,
         }),
       });
-      // 可能返回 200 (成功)、400 (参数错误)、500 (服务器错误) 或 503 (服务不可用)
-      expect([200, 400, 500, 503]).toContain(response.status);
+      // 无有效配置时，应返回 503 (服务不可用) 或 500 (服务器错误)
+      // 200 不应出现，因为此时无有效的 AI 后端可用
+      expect([400, 500, 503]).toContain(response.status);
     });
 
     it('POST /api/ai-assist - 缺少参数时应返回 400', async () => {
@@ -117,11 +118,11 @@ describe('API 接口测试', () => {
 
     it('GET /api/collaboration/room/:roomId - 房间不存在时应返回错误', async () => {
       const response = await fetch(`${BASE_URL}/api/collaboration/room/non-existent-room`);
-      // Next.js 可能返回 404 或 200 (带错误信息)
-      expect([200, 404]).toContain(response.status);
-      if (response.status === 200) {
+      // 房间不存在时应返回明确错误
+      expect([400, 404]).toContain(response.status);
+      if (response.status === 400) {
         const data = await response.json();
-        expect(data.error).toBe('房间不存在');
+        expect(data.error).toBeDefined();
       }
     });
 

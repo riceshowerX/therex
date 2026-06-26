@@ -1,13 +1,14 @@
 /**
  * Supabase 客户端配置
  *
- * 提供了两个客户端：
+ * 提供了三个客户端：
  * 1. getSupabaseClient() - 客户端使用（使用 anon key）
  * 2. getSupabaseAdminClient() - 服务端使用（使用 service role key）
+ * 3. getSupabaseClientWithToken() - 带用户认证 token 的客户端
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { env } from '@/lib/env';
+import { publicEnv, serverEnv } from '@/lib/env';
 
 /**
  * 获取客户端 Supabase 客户端
@@ -16,13 +17,13 @@ import { env } from '@/lib/env';
  * 注意：需要设置适当的 RLS（Row Level Security）策略
  */
 export function getSupabaseClient() {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (!publicEnv.NEXT_PUBLIC_SUPABASE_URL || !publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     throw new Error('Supabase 环境变量未配置，请检查 .env.local 文件');
   }
 
   return createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       auth: {
         persistSession: true,
@@ -40,14 +41,14 @@ export function getSupabaseClient() {
  * ⚠️ 仅在服务端 API 路由中使用
  */
 export function getSupabaseAdminClient() {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!publicEnv.NEXT_PUBLIC_SUPABASE_URL || !serverEnv.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('Supabase 服务端环境变量未配置，将使用本地存储');
     return null;
   }
 
   return createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.SUPABASE_SERVICE_ROLE_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    serverEnv.SUPABASE_SERVICE_ROLE_KEY,
     {
       auth: {
         persistSession: false,
@@ -58,12 +59,29 @@ export function getSupabaseAdminClient() {
 }
 
 /**
- * 带认证的客户端（如果未来支持多用户）
+ * 带认证的客户端（用于已登录用户的请求）
+ *
+ * 使用 anon key + 用户 access token，遵循 RLS 策略
+ * token 应为 Supabase Auth 返回的 access_token
  */
 export function getSupabaseClientWithToken(token: string) {
-  if (!env.NEXT_PUBLIC_SUPABASE_URL) {
+  if (!publicEnv.NEXT_PUBLIC_SUPABASE_URL || !publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     throw new Error('Supabase 环境变量未配置');
   }
 
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, token);
+  return createClient(
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  );
 }

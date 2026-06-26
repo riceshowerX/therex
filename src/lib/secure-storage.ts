@@ -71,10 +71,20 @@ export async function encryptContent(content: string, password: string): Promise
     data
   );
   
-  // 转换为 Base64
-  const ciphertextBase64 = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
-  const ivBase64 = btoa(String.fromCharCode(...iv));
-  const saltBase64 = btoa(String.fromCharCode(...salt));
+  // 转换为 Base64（使用分块处理，避免大文件展开运算符溢出）
+  const uint8ToBase64 = (bytes: Uint8Array): string => {
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    return btoa(binary);
+  };
+
+  const ciphertextBase64 = uint8ToBase64(new Uint8Array(ciphertext));
+  const ivBase64 = uint8ToBase64(iv);
+  const saltBase64 = uint8ToBase64(salt);
   
   return {
     ciphertext: ciphertextBase64,

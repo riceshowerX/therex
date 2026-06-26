@@ -16,7 +16,7 @@ export interface ShareRecord {
   documentTitle: string;
   documentContent: string;
   isPublic: boolean;
-  password?: string;
+  password?: string; // 密码哈希（不存储明文）
   expiresAt?: number;
   viewCount: number;
   createdAt: number;
@@ -24,7 +24,7 @@ export interface ShareRecord {
   allowDownload: boolean;
   allowCopy: boolean;
   lastViewedAt?: number;
-  viewerIPs?: string[]; // 脱敏存储
+  // viewerIPs 仅通过后端 API 记录，前端不可获取真实 IP
 }
 
 // 访问记录

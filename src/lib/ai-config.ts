@@ -2,12 +2,10 @@
  * AI 配置管理模块
  * 支持多种 AI 提供商的自定义配置
  *
- * ⚠️ 安全警告：
- * API Key 当前存储在 localStorage 中，存在 XSS 攻击泄露风险。
- * 生产环境建议：
- * 1. 使用后端 API 代理 AI 请求
- * 2. 使用 HttpOnly Cookie 存储敏感信息
- * 3. 实施严格的 CSP 策略
+ * 安全设计：
+ * - API Key 仅存储在后端数据库中，前端不持有明文 Key
+ * - 前端仅存储非敏感配置（provider、model、temperature 等）
+ * - AI 请求统一通过后端 API 代理，避免 Key 暴露给客户端
  */
 
 import type { AIProvider, AIConfig } from '@/types';
@@ -294,40 +292,77 @@ export class AIConfigManager {
     return AIConfigManager.instance;
   }
 
-  // 加载配置
+  // 加载配置（不包含 apiKey，apiKey 由后端管理）
   private loadConfig(): AIConfig {
     if (typeof window === 'undefined') {
-      return defaultAIConfig;
+      return { ...defaultAIConfig, apiKey: '' };
     }
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return { ...defaultAIConfig, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        // 确保 apiKey 不从 localStorage 恢复
+        const { apiKey: _storedKey, ...safeParsed } = parsed;
+        return { ...defaultAIConfig, ...safeParsed, apiKey: '' };
       }
     } catch (error) {
       logger.error('Failed to load AI config', error instanceof Error ? error : undefined);
     }
 
-    return defaultAIConfig;
+    return { ...defaultAIConfig, apiKey: '' };
   }
 
-  // 保存配置
+  // 保存配置（apiKey 不存入 localStorage，仅通过后端 API 管理）
   saveConfig(config: Partial<AIConfig>): void {
-    this.config = { ...this.config, ...config };
+    // 分离敏感与非敏感配置
+    const { apiKey: _apiKey, ...safeConfig } = config as AIConfig & { apiKey?: string };
+    this.config = { ...this.config, ...safeConfig };
+    
+    // 如果传入了 apiKey，通过后端 API 保存
+    if (config.apiKey !== undefined) {
+      this.saveApiKeyToBackend(config.apiKey);
+    }
     
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config));
+        // 仅保存非敏感配置到 localStorage
+        const { apiKey: _storedKey, ...configToStore } = this.config;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
       } catch (error) {
         logger.error('Failed to save AI config', error instanceof Error ? error : undefined);
       }
     }
   }
 
-  // 获取配置
+  // 通过后端 API 保存 API Key
+  private async saveApiKeyToBackend(apiKey: string): Promise<void> {
+    try {
+      const config = this.getConfig();
+      const response = await fetch('/api/ai-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: config.provider,
+          api_key: apiKey,
+          api_endpoint: config.apiEndpoint,
+          model: config.model,
+          temperature: config.temperature,
+          max_tokens: config.maxTokens,
+          system_prompt: config.systemPrompt,
+        }),
+      });
+      if (!response.ok) {
+        logger.error('Failed to save API key to backend');
+      }
+    } catch (error) {
+      logger.error('Failed to save API key to backend', error instanceof Error ? error : undefined);
+    }
+  }
+
+  // 获取配置（不包含 apiKey）
   getConfig(): AIConfig {
-    return { ...this.config };
+    return { ...this.config, apiKey: '' };
   }
 
   // 重置为默认配置
@@ -343,12 +378,26 @@ export class AIConfigManager {
     }
   }
 
-  // 检查配置是否有效
+  // 检查配置是否有效（apiKey 由后端管理，此处仅检查 provider 和 model）
   isConfigValid(): boolean {
     if (this.config.provider === 'custom') {
-      return !!(this.config.apiKey && this.config.apiEndpoint && this.config.model);
+      return !!(this.config.apiEndpoint && this.config.model);
     }
-    return !!this.config.apiKey;
+    return !!this.config.provider;
+  }
+
+  // 通过后端检查 API Key 是否已配置
+  async isApiKeyConfigured(): Promise<boolean> {
+    try {
+      const response = await fetch('/api/ai-config');
+      if (response.ok) {
+        const data = await response.json();
+        return !!data.api_key_set;
+      }
+    } catch {
+      // 后端不可用时回退到检查本地标志
+    }
+    return false;
   }
 
   // 更新提供商

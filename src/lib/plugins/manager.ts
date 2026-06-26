@@ -503,7 +503,45 @@ export class PluginManager {
       },
 
       network: {
-        fetch: async (url, options) => fetch(url, options),
+        fetch: async (url, options) => {
+          // 防止 SSRF：仅允许 https 协议，禁止访问内网/保留地址
+          const ALLOWED_DOMAINS: string[] = [];
+          try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== 'https:') {
+              throw new Error(`Plugin network access denied: only HTTPS protocol is allowed (got ${parsed.protocol})`);
+            }
+            const hostname = parsed.hostname;
+            // 阻止内网/保留地址
+            if (
+              hostname === 'localhost' ||
+              hostname === '127.0.0.1' ||
+              hostname === '0.0.0.0' ||
+              hostname.startsWith('192.168.') ||
+              hostname.startsWith('10.') ||
+              hostname.startsWith('172.16.') ||
+              hostname.endsWith('.internal') ||
+              hostname.endsWith('.local') ||
+              // 云元数据端点
+              hostname === '169.254.169.254' ||
+              hostname.startsWith('169.254.') ||
+              hostname.startsWith('fc00:') ||
+              hostname.startsWith('fe80:')
+            ) {
+              throw new Error(`Plugin network access denied: private/reserved IP addresses are not allowed (${hostname})`);
+            }
+            // 如果配置了白名单，则仅允许白名单内的域名
+            if (ALLOWED_DOMAINS.length > 0 && !ALLOWED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+              throw new Error(`Plugin network access denied: ${hostname} is not in the allowed domain list`);
+            }
+          } catch (e) {
+            if (e instanceof TypeError) {
+              throw new Error(`Plugin network access denied: invalid URL`);
+            }
+            throw e;
+          }
+          return fetch(url, options);
+        },
       },
 
       clipboard: {

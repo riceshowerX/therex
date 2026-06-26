@@ -54,32 +54,34 @@ export interface WritingProfile {
   lastUpdated: number;
 }
 
-// 默认用户画像
-const defaultProfile: WritingProfile = {
-  preferredStyle: 'professional',
-  frequentWords: new Map(),
-  averageSentenceLength: 15,
-  averageParagraphLength: 100,
-  punctuationUsage: {
-    periods: 0,
-    commas: 0,
-    exclamation: 0,
-    question: 0,
-    semicolons: 0,
-    colons: 0,
-  },
-  commonPatterns: [],
-  topicPreferences: new Map(),
-  languagePreference: '中文',
-  usageStats: {
-    totalDocuments: 0,
-    totalWords: 0,
-    totalSessions: 0,
-    averageSessionDuration: 0,
-  },
-  recentFeatures: [],
-  lastUpdated: Date.now(),
-};
+// 创建默认用户画像（每次调用返回新实例，避免共享引用）
+function createDefaultProfile(): WritingProfile {
+  return {
+    preferredStyle: 'professional',
+    frequentWords: new Map(),
+    averageSentenceLength: 15,
+    averageParagraphLength: 100,
+    punctuationUsage: {
+      periods: 0,
+      commas: 0,
+      exclamation: 0,
+      question: 0,
+      semicolons: 0,
+      colons: 0,
+    },
+    commonPatterns: [],
+    topicPreferences: new Map(),
+    languagePreference: '中文',
+    usageStats: {
+      totalDocuments: 0,
+      totalWords: 0,
+      totalSessions: 0,
+      averageSessionDuration: 0,
+    },
+    recentFeatures: [],
+    lastUpdated: Date.now(),
+  };
+}
 
 // 存储键
 const STORAGE_KEY = 'therex_writing_profile';
@@ -105,23 +107,36 @@ export class UserProfileManager {
   // 加载用户画像
   private loadProfile(): WritingProfile {
     if (typeof window === 'undefined') {
-      return { ...defaultProfile };
+      return createDefaultProfile();
     }
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // 转换 Map 对象
-        parsed.frequentWords = new Map(Object.entries(parsed.frequentWords || {}));
-        parsed.topicPreferences = new Map(Object.entries(parsed.topicPreferences || {}));
-        return { ...defaultProfile, ...parsed };
+        // 转换普通对象为 Map（JSON.parse 不支持 Map）
+        const frequentWords = new Map<string, number>(
+          Array.isArray(parsed.frequentWords)
+            ? parsed.frequentWords
+            : Object.entries(parsed.frequentWords || {})
+        );
+        const topicPreferences = new Map<string, number>(
+          Array.isArray(parsed.topicPreferences)
+            ? parsed.topicPreferences
+            : Object.entries(parsed.topicPreferences || {})
+        );
+        return {
+          ...createDefaultProfile(),
+          ...parsed,
+          frequentWords,
+          topicPreferences,
+        };
       }
     } catch (error) {
       console.error('Failed to load user profile:', error);
     }
 
-    return { ...defaultProfile };
+    return createDefaultProfile();
   }
 
   // 保存用户画像
@@ -296,7 +311,7 @@ export class UserProfileManager {
 
   // 重置用户画像
   resetProfile(): void {
-    this.profile = { ...defaultProfile };
+    this.profile = createDefaultProfile();
     this.saveProfile();
   }
 }

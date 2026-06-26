@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const nextConfig: NextConfig = {
   // 允许的开发来源
   allowedDevOrigins: ['*.dev.coze.site'],
@@ -30,10 +32,29 @@ const nextConfig: NextConfig = {
   cacheHandler: undefined,
   cacheMaxMemorySize: 100 * 1024 * 1024,
 
-  // 启用 Turbopack 配置以兼容 Next.js 16
-  turbopack: {
-    root: __dirname,
-  },
+  // 启用 Turbopack 配置（仅开发模式使用）
+  ...(isDev ? {
+    turbopack: {
+      root: __dirname,
+    },
+  } : {
+    // 生产模式使用 Webpack 优化
+    webpack: (config: Record<string, unknown>, { isServer }: { isServer: boolean }) => {
+      // 服务端配置
+      if (isServer) {
+        config.externals = config.externals || [];
+      }
+
+      // 启用 Tree Shaking
+      config.optimization = {
+        ...(config.optimization as Record<string, unknown>),
+        usedExports: true,
+        sideEffects: true,
+      };
+
+      return config;
+    },
+  }),
 
   // 实验性功能
   experimental: {
@@ -71,54 +92,9 @@ const nextConfig: NextConfig = {
       : false,
   },
 
-  // Webpack 配置
-  webpack: (config: Record<string, unknown>, { isServer, dev }: { isServer: boolean; dev: boolean }) => {
-    // 服务端配置
-    if (isServer) {
-      config.externals = config.externals || [];
-    }
-
-    // 生产环境优化
-    if (!dev) {
-      // 启用 Tree Shaking
-      config.optimization = {
-        ...(config.optimization as Record<string, unknown>),
-        usedExports: true,
-        sideEffects: true,
-      };
-    }
-
-    return config;
-  },
-
   // 静态资源缓存头和安全策略
   async headers() {
     return [
-      // CSP 安全策略
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
-              "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
-              "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
-              "img-src 'self' data: blob: https: http:",
-              "font-src 'self' data: https://fonts.gstatic.com https://fonts.bytedance.com https://lf-cdn.coze.cn https://cdn.jsdelivr.net https://*.bytetos.com",
-              "connect-src 'self' https: wss:",
-              "worker-src 'self' blob:",
-              "frame-src 'self' https:",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "frame-ancestors 'self'",
-            ].join('; '),
-          },
-        ],
-      },
       // 静态资源缓存
       {
         source: '/:all*(svg|jpg|png|webp|avif|ico)',

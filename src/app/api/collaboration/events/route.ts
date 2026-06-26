@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           documentVersion: currentRoom.documentVersion,
         };
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(heartbeat)}\n\n`));
-      }, 3000); // 每 3 秒发送一次心跳
+      }, 30000); // 每 30 秒发送一次心跳（降低服务器负载）
     },
     cancel() {
       clearInterval(intervalId);

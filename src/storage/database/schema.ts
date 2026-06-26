@@ -68,7 +68,8 @@ export const folders = pgTable(
     userId: varchar('user_id', { length: 36 })
       .notNull()
       .default('default_user'),
-    parentId: varchar('parent_id', { length: 36 }), // 自引用外键，在数据库中手动创建
+    parentId: varchar('parent_id', { length: 36 })
+      .references((): any => folders.id, { onDelete: 'cascade' }), // 自引用外键：父文件夹
     name: varchar('name', { length: 255 }).notNull(),
     color: varchar('color', { length: 7 }), // 十六进制颜色代码，如 #FF5733
     icon: varchar('icon', { length: 50 }),
