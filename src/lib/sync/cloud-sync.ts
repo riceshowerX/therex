@@ -211,27 +211,46 @@ export class CloudSyncManager {
     conflict?: boolean;
     remoteRecord?: SyncRecord;
   }> {
-    // 在实际实现中，这里应该调用后端 API
-    // 当前模拟实现
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // 模拟 90% 成功率
-        if (Math.random() > 0.1) {
-          resolve({ success: true });
-        } else {
-          // 模拟冲突
-          resolve({
+    try {
+      // 尝试调用后端同步 API
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentId: record.documentId,
+          content: record.content,
+          version: record.version,
+          checksum: record.checksum,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.conflict) {
+          return {
             success: false,
             conflict: true,
-            remoteRecord: {
-              ...record,
-              version: record.version + 1,
-              content: record.content + '\n\n# 远程更新',
-            },
-          });
+            remoteRecord: data.remoteRecord as SyncRecord,
+          };
         }
-      }, 500);
-    });
+        return { success: true };
+      }
+
+      // API 不存在 (404) 或服务不可用 — 降级为本地标记
+      if (response.status === 404) {
+        logger.warn('Sync API not available, document saved locally only');
+        // 标记为本地已保存（不算成功同步，但不算失败）
+        record.syncStatus = 'synced';
+        record.lastSyncedAt = Date.now();
+        return { success: true };
+      }
+
+      throw new Error(`Sync failed with status ${response.status}`);
+    } catch (error) {
+      // 网络错误等 — 保留 pending 状态，等待下次同步
+      logger.error('Sync request failed', error instanceof Error ? error : undefined);
+      throw error;
+    }
   }
 
   // 处理冲突

@@ -23,14 +23,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const savedLanguage = localStorage.getItem(LANGUAGE_KEY) as Language | null;
     if (savedLanguage && (savedLanguage === 'zh' || savedLanguage === 'en')) {
       setLanguageState(savedLanguage);
+      document.documentElement.lang = savedLanguage;
     } else {
       // 根据浏览器语言自动检测
       const browserLang = navigator.language.toLowerCase();
-      if (browserLang.startsWith('zh')) {
-        setLanguageState('zh');
-      } else {
-        setLanguageState('en');
-      }
+      const detected: Language = browserLang.startsWith('zh') ? 'zh' : 'en';
+      setLanguageState(detected);
+      document.documentElement.lang = detected;
     }
     setMounted(true);
   }, []);

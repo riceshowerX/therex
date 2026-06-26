@@ -296,6 +296,7 @@ export default function MarkdownEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 初始化
   useEffect(() => {
@@ -340,26 +341,50 @@ export default function MarkdownEditor() {
       },
       aiContext: {
         complete: async (prompt, options) => {
-          // 调用 AI API
-          const response = await fetch('/api/ai-assist', {
+          const response = await fetch('/api/ai/service', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, systemPrompt: options?.systemPrompt }),
+            body: JSON.stringify({ action: 'chat', question: prompt, content: options?.systemPrompt }),
           });
           
           if (!response.ok) {
             throw new Error('AI 服务请求失败');
           }
           
-          const data = await response.json();
-          return data.response || data.content || '';
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          let result = '';
+          let buffer = '';
+          
+          if (reader) {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim();
+                  if (data === '[DONE]') continue;
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.content) result += parsed.content;
+                  } catch { /* ignore */ }
+                }
+              }
+            }
+          }
+          
+          return result;
         },
         streamComplete: async (prompt, onChunk, options) => {
-          // 流式响应
-          const response = await fetch('/api/ai-assist', {
+          const response = await fetch('/api/ai/service', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, systemPrompt: options?.systemPrompt, stream: true }),
+            body: JSON.stringify({ action: 'chat', question: prompt, content: options?.systemPrompt }),
           });
           
           if (!response.ok || !response.body) {
@@ -368,13 +393,26 @@ export default function MarkdownEditor() {
           
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
+          let buffer = '';
           
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value);
-            onChunk(chunk);
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
+                if (data === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.content) onChunk(parsed.content);
+                } catch { /* ignore */ }
+              }
+            }
           }
         },
       },
@@ -414,7 +452,17 @@ export default function MarkdownEditor() {
       setDocuments(documentManager.getAllDocuments());
     }, 500);
     
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // 组件卸载或依赖变更时立即保存
+      if (currentDoc) {
+        try {
+          documentManager.updateDocument(currentDoc.id, { title, content });
+        } catch (e) {
+          console.error('Save on unmount failed:', e);
+        }
+      }
+    };
   }, [title, content, currentDoc, isUndoRedo]);
 
   // 记录撤销历史
@@ -668,21 +716,14 @@ export default function MarkdownEditor() {
     const config = aiConfigManager.getConfig();
 
     try {
-      const response = await fetch('/api/ai-assist', {
+      const response = await fetch('/api/ai/service', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'chat',
           content,
-          selection: '',
+          question: userMessage,
           chatHistory: chatMessages,
-          userMessage,
-          config: config.apiKey ? {
-            provider: config.provider,
-            apiKey: config.apiKey,
-            apiEndpoint: config.apiEndpoint,
-            model: config.model,
-          } : undefined,
         }),
       });
 
@@ -693,16 +734,18 @@ export default function MarkdownEditor() {
       let assistantMessage = '';
 
       if (reader) {
+        let buffer = '';
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = line.slice(6);
+              const data = line.slice(6).trim();
               if (data === '[DONE]') continue;
               
               try {
@@ -719,6 +762,9 @@ export default function MarkdownEditor() {
                     }
                     return newMessages;
                   });
+                }
+                if (parsed.error) {
+                  toast.error(parsed.error);
                 }
               } catch {
                 // 忽略解析错误
@@ -762,7 +808,7 @@ export default function MarkdownEditor() {
     const config = aiConfigManager.getConfig();
 
     try {
-      const response = await fetch('/api/ai-assist', {
+      const response = await fetch('/api/ai/service', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -770,13 +816,8 @@ export default function MarkdownEditor() {
         body: JSON.stringify({
           action,
           content,
+          text: content,
           selection: selection || '',
-          config: config.apiKey ? {
-            provider: config.provider,
-            apiKey: config.apiKey,
-            apiEndpoint: config.apiEndpoint,
-            model: config.model,
-          } : undefined,
         }),
       });
 
@@ -788,16 +829,18 @@ export default function MarkdownEditor() {
       const decoder = new TextDecoder();
 
       if (reader) {
+        let buffer = '';
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const data = line.slice(6);
+              const data = line.slice(6).trim();
               if (data === '[DONE]') continue;
               
               try {
@@ -1037,29 +1080,68 @@ ${content}
 
   // 分享处理
   const handleCreateShare = useCallback(async (settings: Omit<ShareSettings, 'id' | 'viewCount' | 'createdAt' | 'createdBy'>) => {
-    // 这里应该调用后端 API 创建分享
-    // 暂时使用本地存储模拟
-    const newShare: ShareSettings = {
-      ...settings,
-      id: `share-${Date.now()}`,
-      viewCount: 0,
-      createdAt: Date.now(),
-      createdBy: 'user',
-    };
-    setShareSettings(newShare);
-    toast.success('分享链接已创建');
-  }, []);
+    try {
+      // 计算过期小时数（ShareManager 使用 expiresIn 小时数）
+      const expiresInHours = settings.expiresAt
+        ? Math.max(1, Math.round((settings.expiresAt - Date.now()) / (60 * 60 * 1000)))
+        : undefined;
+
+      const share = shareManager.createShare({
+        documentId: currentDoc?.id || 'untitled',
+        documentTitle: title || '未命名文档',
+        documentContent: content,
+        isPublic: settings.isPublic,
+        password: settings.password,
+        expiresIn: expiresInHours,
+        allowDownload: settings.allowDownload,
+        allowCopy: settings.allowCopy,
+      });
+
+      const newShare: ShareSettings = {
+        ...settings,
+        id: share.id,
+        viewCount: share.viewCount,
+        createdAt: share.createdAt,
+        createdBy: share.createdBy,
+        expiresAt: share.expiresAt,
+      };
+      setShareSettings(newShare);
+      toast.success('分享链接已创建');
+    } catch (error) {
+      console.error('Create share error:', error);
+      toast.error('创建分享失败');
+    }
+  }, [content, title, currentDoc]);
 
   const handleUpdateShare = useCallback(async (id: string, settings: Partial<ShareSettings>) => {
-    if (shareSettings) {
-      setShareSettings({ ...shareSettings, ...settings });
-      toast.success('分享设置已更新');
+    try {
+      const expiresAt = settings.expiresAt;
+      shareManager.updateShare(id, {
+        isPublic: settings.isPublic,
+        password: settings.password,
+        expiresAt: expiresAt,
+        allowDownload: settings.allowDownload,
+        allowCopy: settings.allowCopy,
+      });
+      if (shareSettings) {
+        setShareSettings({ ...shareSettings, ...settings });
+        toast.success('分享设置已更新');
+      }
+    } catch (error) {
+      console.error('Update share error:', error);
+      toast.error('更新分享设置失败');
     }
   }, [shareSettings]);
 
   const handleDeleteShare = useCallback(async (id: string) => {
-    setShareSettings(null);
-    toast.success('分享已取消');
+    try {
+      shareManager.deleteShare(id);
+      setShareSettings(null);
+      toast.success('分享已取消');
+    } catch (error) {
+      console.error('Delete share error:', error);
+      toast.error('取消分享失败');
+    }
   }, []);
 
   // 标签处理
@@ -1440,6 +1522,7 @@ ${content}
     performanceMonitor.startMonitoring();
     return () => {
       performanceMonitor.stopMonitoring();
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, []);
 

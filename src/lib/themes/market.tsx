@@ -281,7 +281,7 @@ export class ThemeManager {
   applyTheme(theme: ThemePreset): void {
     this.currentTheme = theme;
     
-    // 应用 CSS 变量
+    // 应用 CSS 变量到 :root
     const root = document.documentElement;
     root.style.setProperty('--background', theme.colors.background);
     root.style.setProperty('--foreground', theme.colors.foreground);
@@ -291,6 +291,35 @@ export class ThemeManager {
     root.style.setProperty('--muted', theme.colors.muted);
     root.style.setProperty('--card', theme.colors.card);
     root.style.setProperty('--border', theme.colors.border);
+
+    // 根据背景色亮度自动判断是否为暗色主题
+    const hexToLuminance = (hex: string): number => {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16) / 255;
+      const g = parseInt(clean.substring(2, 4), 16) / 255;
+      const b = parseInt(clean.substring(4, 6), 16) / 255;
+      const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+      return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    };
+    const isDark = hexToLuminance(theme.colors.background) < 0.179;
+
+    if (isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+
+    // 自动派生前景色变量（确保对比度）
+    root.style.setProperty('--primary-foreground', isDark ? theme.colors.foreground : '#ffffff');
+    root.style.setProperty('--secondary-foreground', theme.colors.foreground);
+    root.style.setProperty('--card-foreground', theme.colors.foreground);
+    root.style.setProperty('--popover', theme.colors.card);
+    root.style.setProperty('--popover-foreground', theme.colors.foreground);
+    root.style.setProperty('--muted-foreground', isDark ? '#a3a3a3' : '#737373');
+    root.style.setProperty('--accent-foreground', theme.colors.foreground);
+    root.style.setProperty('--destructive', '#ef4444');
+    root.style.setProperty('--input', theme.colors.border);
+    root.style.setProperty('--ring', theme.colors.primary);
 
     // 保存到存储
     this.saveCurrentTheme(theme);
@@ -303,16 +332,18 @@ export class ThemeManager {
   resetToDefault(): void {
     this.currentTheme = null;
     
-    // 清除自定义 CSS 变量
+    // 清除所有自定义 CSS 变量
     const root = document.documentElement;
-    root.style.removeProperty('--background');
-    root.style.removeProperty('--foreground');
-    root.style.removeProperty('--primary');
-    root.style.removeProperty('--secondary');
-    root.style.removeProperty('--accent');
-    root.style.removeProperty('--muted');
-    root.style.removeProperty('--card');
-    root.style.removeProperty('--border');
+    const customVars = [
+      '--background', '--foreground', '--primary', '--secondary', '--accent',
+      '--muted', '--card', '--border', '--primary-foreground', '--secondary-foreground',
+      '--card-foreground', '--popover', '--popover-foreground', '--muted-foreground',
+      '--accent-foreground', '--destructive', '--input', '--ring',
+    ];
+    customVars.forEach(v => root.style.removeProperty(v));
+
+    // 移除 dark class
+    root.classList.remove('dark');
 
     localStorage.removeItem('therex-theme');
 

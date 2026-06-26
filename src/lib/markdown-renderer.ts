@@ -56,7 +56,7 @@ const renderer = {
   heading(token: Tokens.Heading): string {
     const { text, depth } = token;
     const id = generateHeadingId(text);
-    return `<h${depth} id="${id}" data-heading="${id}">${text}</h${depth}>`;
+    return `<h${depth} id="${escapeHtml(id)}" data-heading="${escapeHtml(id)}">${text}</h${depth}>`;
   },
   
   code(token: Tokens.Code): string {

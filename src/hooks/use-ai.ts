@@ -114,17 +114,19 @@ export function useAI(): UseAIReturn {
 
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留最后可能不完整的行
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+            const data = line.slice(6).trim();
             if (data === '[DONE]') {
               setResponse({
                 content: accumulatedContent,
@@ -155,6 +157,21 @@ export function useAI(): UseAIReturn {
             } catch {
               // 忽略解析错误
             }
+          }
+        }
+      }
+
+      // 处理缓冲区中剩余的数据
+      if (buffer.startsWith('data: ')) {
+        const data = buffer.slice(6).trim();
+        if (data && data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              accumulatedContent += parsed.content;
+            }
+          } catch {
+            // 忽略解析错误
           }
         }
       }
@@ -256,17 +273,19 @@ export function useAIChat() {
 
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let sseBuffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || ''; // 保留最后可能不完整的行
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = line.slice(6);
+            const data = line.slice(6).trim();
             if (data === '[DONE]') {
               // 添加助手回复到历史
               setHistory(prev => [...prev, { role: 'assistant', content: accumulatedContent }]);
@@ -289,6 +308,21 @@ export function useAIChat() {
             } catch {
               // 忽略解析错误
             }
+          }
+        }
+      }
+
+      // 处理缓冲区中剩余的数据
+      if (sseBuffer.startsWith('data: ')) {
+        const data = sseBuffer.slice(6).trim();
+        if (data && data !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) {
+              accumulatedContent += parsed.content;
+            }
+          } catch {
+            // 忽略解析错误
           }
         }
       }

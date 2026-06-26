@@ -115,20 +115,17 @@ export default function SettingsPage() {
     setTestResult(null);
 
     try {
-      const response = await fetch('/api/ai-assist', {
+      // 先保存配置，让后端能读取到
+      aiConfigManager.saveConfig(config);
+
+      const response = await fetch('/api/ai/service', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'test',
-          content: '测试连接',
-          config: {
-            provider: config.provider,
-            apiKey: config.apiKey,
-            apiEndpoint: config.apiEndpoint,
-            model: config.model,
-          },
+          action: 'complete',
+          content: 'Hello',
         }),
       });
 
@@ -137,7 +134,8 @@ export default function SettingsPage() {
         toast.success('连接测试成功');
       } else {
         setTestResult('error');
-        toast.error('连接测试失败');
+        const data = await response.json().catch(() => ({}));
+        toast.error(`连接测试失败: ${data.error || '未知错误'}`);
       }
     } catch {
       setTestResult('error');
