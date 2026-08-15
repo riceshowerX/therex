@@ -297,27 +297,46 @@ export default function MarkdownEditor() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 最新内容/标题/当前文档的 ref，供卸载与页面隐藏时保存（避免闭包旧值）
+  const currentDocRef = useRef(currentDoc);
+  const contentRef = useRef(content);
+  const titleRef = useRef(title);
+
+  useEffect(() => { currentDocRef.current = currentDoc; }, [currentDoc]);
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { titleRef.current = title; }, [title]);
 
   // 初始化
   useEffect(() => {
     setMounted(true);
-    
-    const docs = documentManager.getAllDocuments();
-    setDocuments(docs);
-    
-    const foldersData = documentManager.getAllFolders();
-    setFolders(foldersData);
-    
-    const current = documentManager.getCurrentDocument();
-    if (current) {
-      setCurrentDoc(current);
-      setContent(current.content);
-      setTitle(current.title);
-      setCurrentFolderId(current.folderId);
-      setVersions(current.versions || []);
-    } else {
-      handleCreateDocument();
-    }
+    let cancelled = false;
+
+    (async () => {
+      // 必须先在持久层加载数据，否则内存为空、后续保存会用空集合覆盖用户文档（P0-1）
+      try {
+        await documentManager.initialize();
+      } catch (error) {
+        console.error('存储初始化失败:', error);
+      }
+      if (cancelled) return;
+
+      const docs = documentManager.getAllDocuments();
+      setDocuments(docs);
+
+      const foldersData = documentManager.getAllFolders();
+      setFolders(foldersData);
+
+      const current = documentManager.getCurrentDocument();
+      if (current) {
+        setCurrentDoc(current);
+        setContent(current.content);
+        setTitle(current.title);
+        setCurrentFolderId(current.folderId);
+        setVersions(current.versions || []);
+      } else {
+        handleCreateDocument();
+      }
+    })();
 
     // 配置插件管理器
     pluginManager.configure({
@@ -425,6 +444,7 @@ export default function MarkdownEditor() {
     });
 
     return () => {
+      cancelled = true;
       unsubSync();
     };
   }, []);
@@ -454,16 +474,48 @@ export default function MarkdownEditor() {
     
     return () => {
       clearTimeout(timer);
-      // 组件卸载或依赖变更时立即保存
-      if (currentDoc) {
+      // 组件卸载或依赖变更时立即保存（使用 ref 获取最新内容，避免闭包旧值覆盖）
+      const doc = currentDocRef.current;
+      if (doc) {
         try {
-          documentManager.updateDocument(currentDoc.id, { title, content });
+          documentManager.updateDocument(doc.id, {
+            title: titleRef.current,
+            content: contentRef.current,
+          });
         } catch (e) {
           console.error('Save on unmount failed:', e);
         }
       }
     };
   }, [title, content, currentDoc, isUndoRedo]);
+
+  // 页面隐藏/关闭前强制 flush（防止防抖窗口内最近编辑丢失，P1-13）
+  useEffect(() => {
+    const flush = () => {
+      const doc = currentDocRef.current;
+      if (!doc) return;
+      try {
+        documentManager.updateDocument(doc.id, {
+          title: titleRef.current,
+          content: contentRef.current,
+        });
+        documentManager.forceSave();
+      } catch (e) {
+        console.error('Flush on pagehide failed:', e);
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   // 记录撤销历史
   useEffect(() => {
@@ -970,7 +1022,7 @@ export default function MarkdownEditor() {
 
   // 导出功能
   const exportFile = useCallback(
-    (format: 'md' | 'html' | 'txt' | 'pdf') => {
+    async (format: 'md' | 'html' | 'txt' | 'pdf') => {
       let blob: Blob;
       let filename: string;
 
@@ -980,7 +1032,18 @@ export default function MarkdownEditor() {
           filename = `${title}.md`;
           saveAs(blob, filename);
           break;
-        case 'html':
+        case 'html': {
+          // 导出 HTML 前对内容消毒，防止文档原始 HTML 进入导出文件执行（P2-18 / P0-2）
+          let safeContent = content;
+          try {
+            const { default: DOMPurify } = await import('dompurify');
+            safeContent = DOMPurify.sanitize(content, {
+              ALLOW_DATA_ATTR: true,
+              USE_PROFILES: { html: true },
+            });
+          } catch (error) {
+            console.error('DOMPurify 加载失败，HTML 导出未消毒（安全风险）:', error);
+          }
           const htmlContent = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -994,13 +1057,14 @@ export default function MarkdownEditor() {
   </style>
 </head>
 <body class="markdown-body">
-${content}
+${safeContent}
 </body>
 </html>`;
           blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
           filename = `${title}.html`;
           saveAs(blob, filename);
           break;
+        }
         case 'txt':
           blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
           filename = `${title}.txt`;
@@ -1086,7 +1150,7 @@ ${content}
         ? Math.max(1, Math.round((settings.expiresAt - Date.now()) / (60 * 60 * 1000)))
         : undefined;
 
-      const share = shareManager.createShare({
+      const share = await shareManager.createShare({
         documentId: currentDoc?.id || 'untitled',
         documentTitle: title || '未命名文档',
         documentContent: content,
@@ -1116,7 +1180,7 @@ ${content}
   const handleUpdateShare = useCallback(async (id: string, settings: Partial<ShareSettings>) => {
     try {
       const expiresAt = settings.expiresAt;
-      shareManager.updateShare(id, {
+      await shareManager.updateShare(id, {
         isPublic: settings.isPublic,
         password: settings.password,
         expiresAt: expiresAt,
@@ -1220,7 +1284,7 @@ ${content}
     const stats: DashboardStats = {
       totalDocuments: documents.length,
       totalWords: documents.reduce((sum, doc) => sum + doc.wordCount, 0),
-      totalCharacters: documents.reduce((sum, doc) => sum + doc.content?.length || 0, 0),
+      totalCharacters: documents.reduce((sum, doc) => sum + (doc.content?.length ?? 0), 0),
       averageWordsPerDoc: documents.length > 0 
         ? Math.round(documents.reduce((sum, doc) => sum + doc.wordCount, 0) / documents.length)
         : 0,
@@ -1246,7 +1310,7 @@ ${content}
       })),
       activityByDay: Array.from({ length: 30 }, (_, i) => ({
         date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        count: Math.floor(Math.random() * 1000), // 模拟数据
+        count: 0, // 示例数据：暂无真实按日统计（原为随机模拟数据，P2-8）
       })),
       topDocuments: [...documents].sort((a, b) => b.wordCount - a.wordCount).slice(0, 5),
     };
@@ -1424,33 +1488,55 @@ ${content}
     _options?: AIRequestOptions
   ): Promise<string | AsyncGenerator<string, void, unknown>> => {
     const config = aiConfigManager.getConfig();
-    
-    if (!config.apiKey) {
-      return '请先在设置中配置 AI API Key';
+
+    // 统一契约（P1-1）：优先使用后端已保存配置的 configId，
+    // 不再向前端/服务器发送明文 apiKey（非配置接口）。
+    const configId = await aiConfigManager.getConfigId();
+    if (!configId) {
+      return '请先在设置中保存 AI 配置（需要有效的后端认证）';
     }
 
     const prompt = selection || _content;
-    
+
     // 实际调用 AI API
     try {
+      const body: Record<string, unknown> = {
+        action: feature,
+        content: _content,
+        configId,
+      };
+
+      if (feature === 'chat') {
+        // chat 的用户消息放入 userMessage 字段（后端 getPrompts 读取该字段），
+        // selection 不用于聊天输入（P1-1）
+        body.userMessage = selection || _content;
+      } else {
+        body.selection = selection;
+      }
+
       const response = await fetch('/api/ai-assist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: feature,
-          content: _content,
-          selection,
-          config: {
-            provider: config.provider,
-            apiKey: config.apiKey,
-            apiEndpoint: config.apiEndpoint,
-            model: config.model,
-          },
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        return `AI 请求失败: ${response.status}`;
+        const errorData = await response.json().catch(() => ({}));
+        return `AI 请求失败: ${errorData.error || response.status}`;
+      }
+
+      // 记录 AI 使用统计（估算 token，P2-10）
+      try {
+        aiUsageTracker.recordUsage({
+          provider: config.provider,
+          model: config.model,
+          action: feature,
+          inputText: prompt,
+          outputText: '',
+          success: true,
+        });
+      } catch (usageError) {
+        console.warn('Failed to record AI usage:', usageError);
       }
 
       // 流式响应处理

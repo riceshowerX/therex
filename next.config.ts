@@ -1,13 +1,13 @@
 import type { NextConfig } from 'next';
 
-const isDev = process.env.NODE_ENV === 'development';
-
 const nextConfig: NextConfig = {
   // 允许的开发来源
   allowedDevOrigins: ['*.dev.coze.site'],
 
-  // 设置项目根目录，消除 lockfile 检测警告
-  outputFileTracingRoot: '/workspace/projects',
+  // 设置项目根目录，消除 lockfile 检测警告。
+  // 修复：原硬编码 '/workspace/projects'（Coze 云环境路径）在 Windows 本机构建会出错（P1-7），
+  // 改用当前目录（与 turbopack.root 一致）。
+  outputFileTracingRoot: __dirname,
 
   // 图片优化配置
   images: {
@@ -32,29 +32,12 @@ const nextConfig: NextConfig = {
   cacheHandler: undefined,
   cacheMaxMemorySize: 100 * 1024 * 1024,
 
-  // 启用 Turbopack 配置（仅开发模式使用）
-  ...(isDev ? {
-    turbopack: {
-      root: __dirname,
-    },
-  } : {
-    // 生产模式使用 Webpack 优化
-    webpack: (config: Record<string, unknown>, { isServer }: { isServer: boolean }) => {
-      // 服务端配置
-      if (isServer) {
-        config.externals = config.externals || [];
-      }
-
-      // 启用 Tree Shaking
-      config.optimization = {
-        ...(config.optimization as Record<string, unknown>),
-        usedExports: true,
-        sideEffects: true,
-      };
-
-      return config;
-    },
-  }),
+  // 启用 Turbopack 配置（Next 16 默认使用 Turbopack 打包，P1-7）
+  // 修复：移除原 webpack 分支（使用 Record<string, unknown> 宽松类型且手动覆盖 optimization，
+  // 与 Next 内部配置冲突）；Next 16 的默认优化已包含 tree-shaking 等能力。
+  turbopack: {
+    root: __dirname,
+  },
 
   // 实验性功能
   experimental: {

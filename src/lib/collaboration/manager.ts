@@ -57,6 +57,7 @@ export class CollaborationManager {
   private currentUser: Collaborator | null = null;
   private documentVersion = 0;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
+  private roomToken: string | null = null;
 
   constructor(config?: CollaborationManagerConfig) {
     this.config = {
@@ -98,6 +99,8 @@ export class CollaborationManager {
         lastActive: Date.now(),
         isTyping: false,
       };
+
+      this.roomToken = data.roomToken || null;
 
       this.session = {
         roomId: data.room.id,
@@ -143,6 +146,7 @@ export class CollaborationManager {
       }
 
       this.currentUser = data.user;
+      this.roomToken = data.roomToken || null;
       this.session = {
         roomId,
         documentId,
@@ -273,6 +277,7 @@ export class CollaborationManager {
           body: JSON.stringify({
             roomId: this.session.roomId,
             userId: this.currentUser.id,
+            roomToken: this.roomToken,
           }),
         });
       } catch {
@@ -299,6 +304,7 @@ export class CollaborationManager {
     this.currentUser = null;
     this.documentVersion = 0;
     this.reconnectAttempts = 0;
+    this.roomToken = null;
   }
 
   // 发送光标位置
@@ -313,6 +319,7 @@ export class CollaborationManager {
           roomId: this.session.roomId,
           userId: this.currentUser.id,
           cursor,
+          roomToken: this.roomToken,
         }),
       });
     } catch (error) {
@@ -332,6 +339,7 @@ export class CollaborationManager {
           roomId: this.session.roomId,
           userId: this.currentUser.id,
           selection,
+          roomToken: this.roomToken,
         }),
       });
     } catch (error) {
@@ -357,6 +365,8 @@ export class CollaborationManager {
             roomId: this.session?.roomId,
             userId: this.currentUser?.id,
             content,
+            roomToken: this.roomToken,
+            baseVersion: this.documentVersion,
           }),
         });
 
@@ -365,6 +375,11 @@ export class CollaborationManager {
           this.documentVersion = data.version;
           if (this.session) {
             this.session.lastSyncedVersion = data.version;
+          }
+          // 版本冲突时提示（P1-3，last-write-wins 保留）
+          if (data.conflict) {
+            logger.warn(`Document version conflict detected, server version: ${data.serverVersion}`);
+            this.emit('error', { error: '检测到文档版本冲突，当前内容以最近写入为准' });
           }
         }
       } catch (error) {
@@ -385,6 +400,7 @@ export class CollaborationManager {
           roomId: this.session.roomId,
           userId: this.currentUser.id,
           isTyping,
+          roomToken: this.roomToken,
         }),
       });
     } catch (error) {

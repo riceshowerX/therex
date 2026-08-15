@@ -67,10 +67,13 @@ export default function CollaborationPage() {
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 最近一次已知的文档版本（用于心跳时判断是否需要重新拉取，P1-4）
+  const roomVersionRef = useRef(0);
+  const roomTokenRef = useRef<string | null>(null);
+  const [roomToken, setRoomToken] = useState<string | null>(null);
 
-  // 从 URL 参数获取用户名和文档信息
+  // 从 URL 参数获取标题（文档内容不再通过 URL 传递，改由 API 获取，P1-4）
   const docTitle = searchParams.get('title') || '协作文档';
-  const docContent = searchParams.get('content') || '';
 
   useEffect(() => {
     const nameFromUrl = searchParams.get('name');
@@ -82,12 +85,26 @@ export default function CollaborationPage() {
   // 获取房间信息
   const fetchRoom = useCallback(async () => {
     try {
-      const response = await fetch(`/api/collaboration/room/${roomId}`);
+      const token = roomTokenRef.current;
+      const url = token
+        ? `/api/collaboration/room/${roomId}?token=${encodeURIComponent(token)}`
+        : `/api/collaboration/room/${roomId}`;
+      const response = await fetch(url);
       const data = await response.json();
 
       if (response.ok && data.success) {
+        // 未加入时仅返回摘要（requiresJoin），不视为错误
+        if (data.requiresJoin) {
+          setRoom(data.room || null);
+          setError(null);
+          return;
+        }
         setRoom(data.room);
         setDocumentContent(data.room.documentContent);
+        roomVersionRef.current = data.room.documentVersion || 0;
+        setError(null);
+      } else if (response.status === 401) {
+        // 未加入房间：显示加入表单而非错误
         setError(null);
       } else {
         setError(data.error || '房间不存在');
@@ -114,7 +131,7 @@ export default function CollaborationPage() {
         body: JSON.stringify({
           documentId: `doc-${Date.now()}`,
           documentTitle: docTitle,
-          documentContent: docContent || '# 开始协作\n\n这是一个新的协作文档。',
+          documentContent: '# 开始协作\n\n这是一个新的协作文档。',
           userName: userName.trim(),
         }),
       });
@@ -122,6 +139,9 @@ export default function CollaborationPage() {
       const data = await response.json();
 
       if (data.success) {
+        // 保存房间访问令牌（P1-3）
+        roomTokenRef.current = data.roomToken || null;
+        setRoomToken(data.roomToken || null);
         // 跳转到新房间
         router.push(`/collab/${data.room.id}?name=${encodeURIComponent(userName)}`);
       } else {
@@ -132,7 +152,7 @@ export default function CollaborationPage() {
     } finally {
       setJoining(false);
     }
-  }, [userName, docTitle, docContent, router]);
+  }, [userName, docTitle, router]);
 
   // 加入房间
   const handleJoin = useCallback(async () => {
@@ -153,8 +173,17 @@ export default function CollaborationPage() {
 
       if (data.success) {
         setUserId(data.user.id);
+        // 保存房间访问令牌（P1-3）
+        roomTokenRef.current = data.roomToken || null;
+        setRoomToken(data.roomToken || null);
         setIsConnected(true);
         setCollaborators(data.room.collaborators);
+        if (data.room.documentContent) {
+          setDocumentContent(data.room.documentContent);
+        }
+        if (data.room.documentVersion) {
+          roomVersionRef.current = data.room.documentVersion;
+        }
         toast.success('已加入协作');
       } else {
         toast.error(data.error || '加入失败');
@@ -173,7 +202,7 @@ export default function CollaborationPage() {
         await fetch('/api/collaboration/leave', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId, userId }),
+          body: JSON.stringify({ roomId, userId, roomToken: roomTokenRef.current }),
         });
       } catch {
         // 忽略错误
@@ -196,11 +225,13 @@ export default function CollaborationPage() {
     setTimeout(() => setLinkCopied(false), 2000);
   }, [roomId, userName]);
 
-  // 连接 SSE 事件流
+  // 连接 SSE 事件流（依赖稳定值，避免因 room 对象引用变化导致无限重连，P1-4）
   useEffect(() => {
-    if (!isConnected || !userId) return;
+    if (!isConnected || !userId || !roomToken) return;
 
-    eventSourceRef.current = new EventSource(`/api/collaboration/events?roomId=${roomId}`);
+    eventSourceRef.current = new EventSource(
+      `/api/collaboration/events?roomId=${roomId}&token=${encodeURIComponent(roomToken)}`
+    );
 
     eventSourceRef.current.onmessage = (event) => {
       try {
@@ -211,11 +242,14 @@ export default function CollaborationPage() {
             setRoom(data.room);
             setDocumentContent(data.room.documentContent);
             setCollaborators(data.collaborators);
+            roomVersionRef.current = data.room.documentVersion || 0;
             break;
 
           case 'heartbeat':
             setCollaborators(data.collaborators);
-            if (room && data.documentVersion > room.documentVersion) {
+            // 仅当远端版本高于本地已知版本时才重新拉取全文
+            if (typeof data.documentVersion === 'number' && data.documentVersion > roomVersionRef.current) {
+              roomVersionRef.current = data.documentVersion;
               fetchRoom();
             }
             break;
@@ -237,24 +271,34 @@ export default function CollaborationPage() {
     return () => {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
     };
-  }, [isConnected, userId, roomId, room, handleLeave, fetchRoom]);
+  }, [isConnected, userId, roomId, roomToken, handleLeave, fetchRoom]);
 
   // 同步文档内容
   const syncContent = useCallback(async (content: string) => {
     if (!userId || !room) return;
 
     try {
-      await fetch('/api/collaboration/sync', {
+      const response = await fetch('/api/collaboration/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomId,
           userId,
           content,
+          roomToken: roomTokenRef.current,
+          baseVersion: roomVersionRef.current,
         }),
       });
+      const data = await response.json().catch(() => ({}));
+      if (data.success && typeof data.version === 'number') {
+        roomVersionRef.current = data.version;
+        if (data.conflict) {
+          toast.warning('检测到文档版本冲突，已以最近写入为准');
+        }
+      }
     } catch {
       // 忽略错误
     }
@@ -272,6 +316,7 @@ export default function CollaborationPage() {
           roomId,
           userId,
           isTyping,
+          roomToken: roomTokenRef.current,
         }),
       });
     } catch {

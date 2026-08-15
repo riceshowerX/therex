@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAIService, AIServiceConfig } from '@/lib/ai/service';
 import { HeaderUtils } from 'coze-coding-dev-sdk';
+import { withApiHandler } from '@/lib/api-utils';
 
 // 请求体接口
 interface AIRequest {
@@ -30,7 +31,7 @@ interface AIRequest {
   config?: Partial<AIServiceConfig>;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body: AIRequest = await request.json();
     const {
@@ -65,8 +66,19 @@ export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        let generator: AsyncGenerator<string> | null = null;
+        // ReadableStreamDefaultController 的 signal 在部分 TS DOM lib 中缺失，做类型收窄
+        const streamSignal = (controller as unknown as { signal: AbortSignal }).signal;
+        // 客户端断开时中止 AI 生成，避免资源与上游费用持续消耗（P1-12）
+        const onAbort = () => {
+          try {
+            generator?.return?.(undefined);
+          } catch {
+            // 忽略中止错误
+          }
+        };
+        streamSignal.addEventListener('abort', onAbort, { once: true });
         try {
-          let generator: AsyncGenerator<string> | null = null;
 
           switch (action) {
             // 写作助手
@@ -177,6 +189,8 @@ export async function POST(request: NextRequest) {
             encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`)
           );
           controller.close();
+        } finally {
+          streamSignal.removeEventListener('abort', onAbort);
         }
       }
     });
@@ -200,7 +214,7 @@ export async function POST(request: NextRequest) {
 }
 
 // 语言检测接口
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const text = searchParams.get('text');
 
@@ -219,3 +233,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '语言检测失败' }, { status: 500 });
   }
 }
+
+// 接入统一限流与错误处理（P1-8）
+export const POST = withApiHandler(postHandler);
+export const GET = withApiHandler(getHandler);

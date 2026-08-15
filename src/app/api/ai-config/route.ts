@@ -8,20 +8,50 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
+import { serverEnv } from '@/lib/env';
 import { z } from 'zod';
+import { withApiHandler } from '@/lib/api-utils';
 
-// 从请求头中提取用户 ID（临时方案，后续接入正式鉴权）
-function getUserId(request: NextRequest): string {
-  // 优先从 Authorization header 获取
+/**
+ * 鉴权策略（临时方案，后续接入正式认证，P0-3）：
+ * 1. 若配置了 SUPABASE_SERVICE_ROLE_KEY：
+ *    - 校验 Authorization: Bearer <Supabase JWT>
+ *    - 通过 supabase.auth.getUser(token) 换取真实 user.id
+ *    - 无效/缺失 token 一律返回 401
+ * 2. 若未配置 Supabase（本机/内网单用户共享密钥模式）：
+ *    - 校验专用请求头 x-ai-config-key === 服务端环境变量 AI_CONFIG_ADMIN_KEY
+ *    - 共享密钥只存在于服务端 env；Authorization 头保留给未来 Supabase JWT 使用
+ *    - 未设置 AI_CONFIG_ADMIN_KEY 时：生产环境一律 401；非生产环境放行并输出警告（便于本地开发）
+ * 3. 禁止把任意字符串直接当作身份；禁止 default_user 兜底。
+ */
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  // 方案 1：Supabase JWT 校验（Authorization 头）
   const authHeader = request.headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7);
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      const adminClient = getSupabaseAdminClient();
+      if (adminClient) {
+        const { data, error } = await adminClient.auth.getUser(token);
+        if (error || !data.user) return null;
+        return data.user.id;
+      }
+    }
   }
-  // 回退到自定义 header
-  const userId = request.headers.get('x-user-id');
-  if (userId) return userId;
-  // 兜底：使用默认用户（未鉴权场景）
-  return 'default_user';
+
+  // 方案 2：共享密钥模式（专用请求头 x-ai-config-key，密钥仅存在于服务端 env）
+  const adminKey = serverEnv.AI_CONFIG_ADMIN_KEY;
+  if (adminKey) {
+    const keyHeader = request.headers.get('x-ai-config-key');
+    return keyHeader === adminKey ? 'local-admin' : null;
+  }
+
+  // 未配置任何鉴权机制
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+  console.warn('[ai-config] 未配置 SUPABASE_SERVICE_ROLE_KEY 或 AI_CONFIG_ADMIN_KEY，开发环境临时放行');
+  return 'dev-user';
 }
 
 // 数据库返回的 snake_case 字段映射为 camelCase
@@ -58,9 +88,10 @@ function toClientConfig(dbConfig: DBAIConfig) {
 }
 
 // 验证 schema - 接受前端 camelCase 参数
+// api_key 可选：允许先创建配置骨架，再通过 PATCH 单独保存密钥（P1-2）
 const createAIConfigSchema = z.object({
-  provider: z.enum(['doubao', 'deepseek', 'openai', 'kimi', 'custom']),
-  api_key: z.string().min(1),
+  provider: z.enum(['doubao', 'deepseek', 'openai', 'kimi', 'custom', 'claude', 'gemini', 'wenxin', 'qwen', 'zhipu', 'minimax', 'baichuan']),
+  api_key: z.string().min(1).optional().default(''),
   api_endpoint: z.string().url(),
   model: z.string().min(1),
   temperature: z.number().min(0).max(1).optional().default(0.7),
@@ -82,9 +113,15 @@ const updateAIConfigSchema = z.object({
 });
 
 // GET - 获取所有 AI 配置（不返回 api_key 明文）
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
     const client = getSupabaseAdminClient();
     if (!client) {
       return NextResponse.json(
@@ -121,9 +158,15 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - 创建 AI 配置
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
     const body = await request.json();
     const validatedData = createAIConfigSchema.parse(body);
 
@@ -187,9 +230,15 @@ export async function POST(request: NextRequest) {
 }
 
 // PATCH - 更新 AI 配置
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
     const body = await request.json();
     const { id, ...updates } = body;
 
@@ -266,9 +315,15 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE - 删除 AI 配置
-export async function DELETE(request: NextRequest) {
+async function deleteHandler(request: NextRequest) {
   try {
-    const userId = getUserId(request);
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -310,3 +365,9 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+// 接入统一限流与错误处理（P1-8）
+export const GET = withApiHandler(getHandler);
+export const POST = withApiHandler(postHandler);
+export const PATCH = withApiHandler(patchHandler);
+export const DELETE = withApiHandler(deleteHandler);

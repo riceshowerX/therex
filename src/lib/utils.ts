@@ -14,6 +14,10 @@ export function cn(...inputs: ClassValue[]) {
  * @returns 唯一 ID 字符串
  */
 export function generateId(prefix: string = 'id'): string {
+  // 优先使用加密安全随机 UUID，避免并发碰撞（P2-5）
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 

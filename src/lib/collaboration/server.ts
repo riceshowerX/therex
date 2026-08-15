@@ -55,16 +55,55 @@ const USER_COLORS = [
 const rooms = new Map<string, ServerRoom>();
 const userRooms = new Map<string, Set<string>>(); // userId -> roomIds
 
+// 房间/用户访问令牌（P1-3：协作 API 最小鉴权）
+// roomTokens: roomId -> 创建房间时生成的房间令牌（预留，可作邀请码）
+// userTokens: userId -> 该用户在房间中的访问令牌
+// tokenToUser: token -> userId（用于 SSE 订阅等仅凭 token 的校验）
+const roomTokens = new Map<string, string>();
+const userTokens = new Map<string, string>();
+const tokenToUser = new Map<string, string>();
+
 // 安全限制
 const MAX_ROOMS = 100; // 最大房间数
 const MAX_OPERATIONS_PER_ROOM = 100; // 每个房间最大操作数
+const MAX_DOCUMENT_CONTENT_LENGTH = 2 * 1024 * 1024; // 文档内容最大 2MB（P1-3）
 const RATE_LIMIT_ROOMS_PER_USER = 5; // 每用户最多创建房间数
 const RATE_LIMIT_WINDOW = 60 * 1000; // 速率限制窗口（1分钟）
 const userRoomCreationLog = new Map<string, number[]>(); // userId -> 创建时间戳列表
 
-// 生成房间 ID
+// 生成房间 ID（完整 UUID，128 位随机，不可枚举，P1-3）
 export function generateRoomId(): string {
-  return randomUUID().substring(0, 8);
+  return randomUUID();
+}
+
+// 生成访问令牌
+function generateToken(): string {
+  return randomUUID();
+}
+
+// 校验用户访问令牌是否有效且属于该房间（P1-3）
+export function verifyRoomToken(roomId: string, userId: string, token?: string): boolean {
+  if (!token) return false;
+  const expected = userTokens.get(userId);
+  if (!expected || expected !== token) return false;
+  if (tokenToUser.get(token) !== userId) return false;
+  const room = rooms.get(roomId);
+  return !!room && room.collaborators.has(userId);
+}
+
+// 获取用户访问令牌
+export function getUserToken(userId: string): string | null {
+  return userTokens.get(userId) ?? null;
+}
+
+// 根据令牌反查 userId（SSE 等仅凭 token 的场景）
+export function getUserIdByToken(token: string): string | null {
+  return tokenToUser.get(token) ?? null;
+}
+
+// 校验文档内容长度（P1-3）
+export function isContentWithinLimit(content: string): boolean {
+  return content.length <= MAX_DOCUMENT_CONTENT_LENGTH;
 }
 
 // 获取随机颜色
@@ -96,6 +135,7 @@ export function createRoom(
 
   const roomId = generateRoomId();
   const creatorId = randomUUID();
+  const creatorToken = generateToken();
   
   const room: ServerRoom = {
     id: roomId,
@@ -120,6 +160,9 @@ export function createRoom(
   };
   
   room.collaborators.set(creatorId, creator);
+  roomTokens.set(roomId, creatorToken);
+  userTokens.set(creatorId, creatorToken);
+  tokenToUser.set(creatorToken, creatorId);
   userRooms.set(creatorId, new Set([roomId]));
   rooms.set(roomId, room);
 
@@ -142,6 +185,7 @@ export function joinRoom(
   }
 
   const userId = randomUUID();
+  const userToken = generateToken();
   const user: ServerCollaborator = {
     id: userId,
     name: userName,
@@ -151,6 +195,8 @@ export function joinRoom(
   };
 
   room.collaborators.set(userId, user);
+  userTokens.set(userId, userToken);
+  tokenToUser.set(userToken, userId);
   
   // 更新用户房间映射
   if (!userRooms.has(userId)) {
@@ -174,6 +220,12 @@ export function leaveRoom(roomId: string, userId: string): { success: boolean; i
     userRoomSet.delete(roomId);
     if (userRoomSet.size === 0) {
       userRooms.delete(userId);
+      // 用户不在任何房间时，清理其访问令牌
+      const token = userTokens.get(userId);
+      if (token) {
+        userTokens.delete(userId);
+        tokenToUser.delete(token);
+      }
     }
   }
 
@@ -193,8 +245,9 @@ export function updateDocument(
   roomId: string,
   userId: string,
   content: string,
-  operation?: Omit<ServerOperation, 'id' | 'userId' | 'timestamp'>
-): { success: boolean; version?: number; error?: string } {
+  operation?: Omit<ServerOperation, 'id' | 'userId' | 'timestamp'>,
+  baseVersion?: number
+): { success: boolean; version?: number; error?: string; conflict?: boolean } {
   const room = rooms.get(roomId);
   
   if (!room) {
@@ -204,6 +257,9 @@ export function updateDocument(
   if (!room.collaborators.has(userId)) {
     return { success: false, error: '用户不在房间中' };
   }
+
+  // 版本冲突检测（保留 last-write-wins，但向客户端报告冲突，P1-3）
+  const conflict = baseVersion !== undefined && baseVersion < room.documentVersion;
 
   // 记录操作
   if (operation) {
@@ -224,7 +280,7 @@ export function updateDocument(
   room.documentContent = content;
   room.documentVersion++;
 
-  return { success: true, version: room.documentVersion };
+  return { success: true, version: room.documentVersion, conflict };
 }
 
 // 更新用户光标
@@ -306,6 +362,20 @@ export function cleanupExpiredRooms(): number {
 
     if (now - lastActive > expireTime) {
       rooms.delete(roomId);
+      roomTokens.delete(roomId);
+      // 清理该房间内用户的令牌（仅当其不再属于任何房间时）
+      for (const collaboratorId of room.collaborators.keys()) {
+        const userRoomSet = userRooms.get(collaboratorId);
+        userRoomSet?.delete(roomId);
+        if (userRoomSet && userRoomSet.size === 0) {
+          userRooms.delete(collaboratorId);
+          const token = userTokens.get(collaboratorId);
+          if (token) {
+            userTokens.delete(collaboratorId);
+            tokenToUser.delete(token);
+          }
+        }
+      }
       cleaned++;
     }
   }

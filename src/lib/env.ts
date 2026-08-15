@@ -18,6 +18,8 @@ const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   // AI API Key
   AI_API_KEY: z.string().min(1).optional(),
+  // AI 配置管理密钥（无 Supabase 时的本地/单用户鉴权兜底，见 ai-config API）
+  AI_CONFIG_ADMIN_KEY: z.string().min(1).optional(),
   // Sentry 服务端 token
   SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
   // 对象存储密钥
@@ -32,6 +34,8 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:5000'),
   NEXT_PUBLIC_APP_NAME: z.string().default('Therex'),
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  // 本机/内网共享密钥模式：前端发送 x-ai-config-key 的取值（须与后端服务端 env AI_CONFIG_ADMIN_KEY 一致）
+  NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY: z.string().min(1).optional(),
 });
 
 // 共享的可选配置
@@ -51,6 +55,7 @@ export const publicEnv = publicEnvSchema.parse({
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY: process.env.NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY,
 });
 
 /**
@@ -66,6 +71,7 @@ export const serverEnv = (() => {
     return serverEnvSchema.parse({
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
       AI_API_KEY: process.env.AI_API_KEY,
+      AI_CONFIG_ADMIN_KEY: process.env.AI_CONFIG_ADMIN_KEY,
       SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
       AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,

@@ -16,7 +16,7 @@ export interface ShareRecord {
   documentTitle: string;
   documentContent: string;
   isPublic: boolean;
-  password?: string; // 密码哈希（不存储明文）
+  password?: string; // 密码的 SHA-256 摘要（P1-5：不再存明文；注意该方案仅适用于本机演示，服务端化后应改用 bcrypt/argon2）
   expiresAt?: number;
   viewCount: number;
   createdAt: number;
@@ -72,7 +72,7 @@ export class ShareManager {
   }
 
   // 创建分享
-  createShare(options: {
+  async createShare(options: {
     documentId: string;
     documentTitle: string;
     documentContent: string;
@@ -81,14 +81,14 @@ export class ShareManager {
     expiresIn?: number; // 小时
     allowDownload?: boolean;
     allowCopy?: boolean;
-  }): ShareRecord {
+  }): Promise<ShareRecord> {
     const share: ShareRecord = {
       id: this.generateId(),
       documentId: options.documentId,
       documentTitle: options.documentTitle,
       documentContent: options.documentContent,
       isPublic: options.isPublic,
-      password: options.password,
+      password: options.password ? await hashPassword(options.password) : undefined,
       expiresAt: options.expiresIn ? Date.now() + options.expiresIn * 60 * 60 * 1000 : undefined,
       viewCount: 0,
       createdAt: Date.now(),
@@ -102,11 +102,19 @@ export class ShareManager {
   }
 
   // 更新分享
-  updateShare(id: string, updates: Partial<ShareRecord>): ShareRecord | null {
+  async updateShare(id: string, updates: Partial<ShareRecord>): Promise<ShareRecord | null> {
     const share = this.getShare(id);
     if (!share) return null;
 
-    const updated = { ...share, ...updates };
+    // 若更新了密码字段，则先哈希再存储（P1-5）；未提供 password 字段则保持原密码
+    const next: Partial<ShareRecord> = { ...updates };
+    if (typeof updates.password === 'string') {
+      next.password = await hashPassword(updates.password);
+    } else {
+      delete next.password;
+    }
+
+    const updated = { ...share, ...next };
     this.saveShare(updated);
     return updated;
   }
@@ -150,11 +158,11 @@ export class ShareManager {
   }
 
   // 验证分享访问
-  validateAccess(id: string, password?: string): {
+  async validateAccess(id: string, password?: string): Promise<{
     valid: boolean;
     reason?: string;
     share?: ShareRecord;
-  } {
+  }> {
     const share = this.getShare(id);
     
     if (!share) {
@@ -165,8 +173,14 @@ export class ShareManager {
       return { valid: false, reason: '分享已过期' };
     }
 
-    if (!share.isPublic && share.password !== password) {
-      return { valid: false, reason: '密码错误' };
+    if (!share.isPublic) {
+      if (!password) {
+        return { valid: false, reason: '需要密码' };
+      }
+      const passwordHash = await hashPassword(password);
+      if (share.password !== passwordHash) {
+        return { valid: false, reason: '密码错误' };
+      }
     }
 
     return { valid: true, share };
@@ -309,6 +323,31 @@ export class ShareManager {
   private generateId(): string {
     return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
   }
+}
+
+/**
+ * 密码哈希（SHA-256）。
+ * 注意：这是本机演示用的非密码学安全方案（未加盐），
+ * 服务端化后必须改用 bcrypt/argon2 等专用 KDF（P1-5）。
+ */
+async function hashPassword(password: string): Promise<string> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const data = new TextEncoder().encode(password);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    } catch {
+      // 回退到简单摘要
+    }
+  }
+  // 极简降级（非安全环境）
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    hash = ((hash << 5) - hash + password.charCodeAt(i)) | 0;
+  }
+  return `fallback-${Math.abs(hash).toString(16)}`;
 }
 
 // 导出单例

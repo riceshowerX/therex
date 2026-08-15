@@ -33,11 +33,29 @@ export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewPro
     // SSR 安全：仅在客户端执行
     if (typeof window === 'undefined' || !previewRef.current) return;
 
+    let disposed = false;
+
     // 清理旧的 ECharts 实例
     cleanupECharts();
 
-    // 设置 HTML 内容
-    previewRef.current.innerHTML = htmlContent;
+    // 设置 HTML 内容（先经 DOMPurify 消毒，防止文档中的原始 HTML 造成 XSS，P0-2）
+    const applyContent = async (): Promise<void> => {
+      let safeHtml = htmlContent;
+      try {
+        const { default: DOMPurify } = await import('dompurify');
+        // 保留 KaTeX 内联样式、ECharts 数据属性、Mermaid SVG 等渲染输出
+        safeHtml = DOMPurify.sanitize(htmlContent, {
+          ADD_ATTR: ['style', 'data-chart-config', 'data-heading'],
+          ALLOW_DATA_ATTR: true,
+          USE_PROFILES: { html: true },
+        });
+      } catch (error) {
+        console.error('DOMPurify 加载失败，跳过消毒（安全风险）:', error);
+      }
+      if (!disposed && previewRef.current) {
+        previewRef.current.innerHTML = safeHtml;
+      }
+    };
 
     // 初始化 Mermaid 图表（全局只初始化一次）
     const renderMermaid = async () => {
@@ -49,7 +67,7 @@ export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewPro
           // 已初始化，只渲染新的图表
           const mermaid = (await import('mermaid')).default;
           const mermaidDivs = previewRef.current?.querySelectorAll('.mermaid');
-          
+
           if (mermaidDivs && mermaidDivs.length > 0) {
             await mermaid.run({
               nodes: Array.from(mermaidDivs) as HTMLElement[],
@@ -76,16 +94,16 @@ export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewPro
       }
     };
 
-    // 并行渲染图表
-    Promise.all([
-      renderMermaid(),
-      renderECharts(),
-    ])
-      .then(() => setIsReady(true))
-      .catch(console.error);
+    (async () => {
+      // 先注入（已消毒的）HTML，再渲染图表，避免图表节点尚未挂载
+      await applyContent();
+      await Promise.all([renderMermaid(), renderECharts()]);
+      if (!disposed) setIsReady(true);
+    })().catch(console.error);
 
     // 清理函数
     return () => {
+      disposed = true;
       cleanupECharts();
     };
   }, [htmlContent]);

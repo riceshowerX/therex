@@ -168,7 +168,7 @@ export function checkPasswordStrength(password: string): {
 }
 
 /**
- * 生成随机密码
+ * 生成随机密码（使用加密安全随机源，P2-6）
  */
 export function generatePassword(length: number = 16): string {
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -177,22 +177,36 @@ export function generatePassword(length: number = 16): string {
   const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?';
   
   const allChars = lowercase + uppercase + numbers + symbols;
-  
+
+  const getRandomInt = (max: number): number => {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      return buf[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  };
+
   let password = '';
   
   // 确保每种字符都有
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  password += symbols[Math.floor(Math.random() * symbols.length)];
+  password += lowercase[getRandomInt(lowercase.length)];
+  password += uppercase[getRandomInt(uppercase.length)];
+  password += numbers[getRandomInt(numbers.length)];
+  password += symbols[getRandomInt(symbols.length)];
   
   // 填充剩余长度
   for (let i = 4; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
+    password += allChars[getRandomInt(allChars.length)];
   }
   
-  // 打乱顺序
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  // 使用 Fisher-Yates 打乱顺序
+  const arr = password.split('');
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = getRandomInt(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.join('');
 }
 
 /**

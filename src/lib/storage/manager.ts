@@ -64,6 +64,7 @@ class StorageManager {
   private folders: Map<string, Folder> = new Map();
   private versions: Map<string, DocumentVersion[]> = new Map();
   private currentDocumentId: string | null = null;
+  private initialized = false;
 
   constructor() {
     // 默认使用 localStorage
@@ -91,12 +92,20 @@ class StorageManager {
       await this.loadData();
 
       this.status = 'ready';
+      this.initialized = true;
       return true;
     } catch (error) {
       logger.error('存储初始化失败', error instanceof Error ? error : undefined);
       this.status = 'error';
       return false;
     }
+  }
+
+  /**
+   * 是否已完成初始化（数据已从持久层载入内存）
+   */
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
   /**
@@ -149,10 +158,13 @@ class StorageManager {
 
   /**
    * 获取当前文档
+   *
+   * 注意：不再隐式创建文档。若尚无当前文档返回 undefined，
+   * 由 UI（如"新建"按钮）显式调用 createDocument 创建。
    */
   getCurrentDocument(): Document | undefined {
     if (!this.currentDocumentId) {
-      return this.createDocument();
+      return undefined;
     }
     return this.documents.get(this.currentDocumentId);
   }
@@ -644,6 +656,13 @@ class StorageManager {
 
   private doSave(prefix: string): void {
     try {
+      // 防丢失兜底：若尚未初始化（内存为空但持久层可能有数据），
+      // 先合并持久层已有数据，避免用空状态整体覆盖用户已有文档。
+      if (!this.initialized) {
+        this.mergeWithPersistedData(prefix);
+        return;
+      }
+
       localStorage.setItem(`${prefix}-documents`, JSON.stringify(Array.from(this.documents.values())));
       localStorage.setItem(`${prefix}-folders`, JSON.stringify(Array.from(this.folders.values())));
 
@@ -660,6 +679,60 @@ class StorageManager {
       this.saveConfig();
     } catch (error) {
       logger.error('保存数据失败', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 未初始化时的安全写盘：读取持久层现有数据，与内存数据合并后写回，
+   * 防止因内存尚未载入而用空集合覆盖用户已有数据。
+   */
+  private mergeWithPersistedData(prefix: string): void {
+    try {
+      const docsData = localStorage.getItem(`${prefix}-documents`);
+      if (docsData) {
+        const existing = JSON.parse(docsData) as Document[];
+        const merged = new Map<string, Document>();
+        for (const doc of existing) merged.set(doc.id, doc);
+        // 内存数据优先（同一 id 以内存为准）
+        for (const doc of this.documents.values()) merged.set(doc.id, doc);
+        localStorage.setItem(`${prefix}-documents`, JSON.stringify(Array.from(merged.values())));
+      } else if (this.documents.size > 0) {
+        localStorage.setItem(`${prefix}-documents`, JSON.stringify(Array.from(this.documents.values())));
+      }
+
+      const foldersData = localStorage.getItem(`${prefix}-folders`);
+      if (foldersData) {
+        const existing = JSON.parse(foldersData) as Folder[];
+        const merged = new Map<string, Folder>();
+        for (const folder of existing) merged.set(folder.id, folder);
+        for (const folder of this.folders.values()) merged.set(folder.id, folder);
+        localStorage.setItem(`${prefix}-folders`, JSON.stringify(Array.from(merged.values())));
+      } else if (this.folders.size > 0) {
+        localStorage.setItem(`${prefix}-folders`, JSON.stringify(Array.from(this.folders.values())));
+      }
+
+      const versionsData = localStorage.getItem(`${prefix}-versions`);
+      if (versionsData) {
+        const existingMap = JSON.parse(versionsData) as Record<string, DocumentVersion[]>;
+        this.versions.forEach((versions, docId) => {
+          existingMap[docId] = versions;
+        });
+        localStorage.setItem(`${prefix}-versions`, JSON.stringify(existingMap));
+      } else if (this.versions.size > 0) {
+        const versionsMap: Record<string, DocumentVersion[]> = {};
+        this.versions.forEach((v, k) => {
+          versionsMap[k] = v;
+        });
+        localStorage.setItem(`${prefix}-versions`, JSON.stringify(versionsMap));
+      }
+
+      if (this.currentDocumentId) {
+        localStorage.setItem(`${prefix}-current-document`, this.currentDocumentId);
+      }
+
+      this.saveConfig();
+    } catch (error) {
+      logger.error('合并保存数据失败', error instanceof Error ? error : undefined);
     }
   }
 
@@ -684,6 +757,7 @@ class StorageManager {
 
     // 重置状态
     this.status = 'uninitialized';
+    this.initialized = false;
 
     logger.info('StorageManager destroyed');
   }
@@ -771,6 +845,8 @@ export const documentManager = {
 
   // 初始化
   initialize: () => getStorageManager().initialize(),
+  isInitialized: () => getStorageManager().isInitialized(),
+  forceSave: () => getStorageManager().forceSave(),
 };
 
 // 导出类型 - 从统一类型定义重新导出，保持向后兼容

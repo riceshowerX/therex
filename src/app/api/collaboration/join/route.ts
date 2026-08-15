@@ -4,9 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { joinRoom, exportRoom } from '@/lib/collaboration/server';
+import { joinRoom, exportRoom, getUserToken } from '@/lib/collaboration/server';
+import { withApiHandler, rateLimiterHigh } from '@/lib/api-utils';
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await request.json();
     const { roomId, userName } = body;
@@ -27,10 +28,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 返回新用户的访问令牌（P1-3）
+    const roomToken = result.user ? getUserToken(result.user.id) : null;
+
     return NextResponse.json({
       success: true,
       room: exportRoom(roomId),
       user: result.user,
+      roomToken,
     });
   } catch (error) {
     console.error('Join room error:', error);
@@ -40,3 +45,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// 接入统一限流与错误处理（P1-8）
+export const POST = withApiHandler(postHandler, rateLimiterHigh);

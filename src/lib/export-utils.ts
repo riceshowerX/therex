@@ -140,6 +140,18 @@ async function generateHtml(
   options: ExportOptions
 ): Promise<string> {
   const parsedContent = await marked(content);
+  // 导出 HTML 前消毒，防止文档中的原始 HTML（含 <script>/事件属性）进入导出文件（P2-19 / P0-2）
+  let safeContent = parsedContent;
+  try {
+    const { default: DOMPurify } = await import('dompurify');
+    safeContent = DOMPurify.sanitize(parsedContent, {
+      ADD_ATTR: ['style'],
+      ALLOW_DATA_ATTR: true,
+      USE_PROFILES: { html: true },
+    });
+  } catch (error) {
+    console.error('DOMPurify 加载失败，导出 HTML 未消毒（安全风险）:', error);
+  }
   const styles = options.includeStyles ? getInlineStyles() : '';
 
   const tocHtml = options.includeToc
@@ -156,11 +168,11 @@ async function generateHtml(
 </head>
 <body>
   <article class="markdown-body">
-    ${options.title ? `<h1 class="title">${options.title}</h1>` : ''}
-    ${options.author ? `<p class="author">作者: ${options.author}</p>` : ''}
+    ${options.title ? `<h1 class="title">${escapeHtml(options.title)}</h1>` : ''}
+    ${options.author ? `<p class="author">作者: ${escapeHtml(options.author)}</p>` : ''}
     ${tocHtml}
     <div class="content">
-      ${parsedContent}
+      ${safeContent}
     </div>
   </article>
   <script>
@@ -174,6 +186,18 @@ async function generateHtml(
 }
 
 /**
+ * HTML 转义（用于导出模板中嵌入的元数据字段）
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * 生成 Word 兼容的 HTML
  */
 async function generateWordHtml(
@@ -181,13 +205,25 @@ async function generateWordHtml(
   options: ExportOptions
 ): Promise<string> {
   const parsedContent = await marked(content);
+  // 导出前消毒，防止文档原始 HTML 进入 Word 文件（P2-19 / P0-2）
+  let safeContent = parsedContent;
+  try {
+    const { default: DOMPurify } = await import('dompurify');
+    safeContent = DOMPurify.sanitize(parsedContent, {
+      ADD_ATTR: ['style'],
+      ALLOW_DATA_ATTR: true,
+      USE_PROFILES: { html: true },
+    });
+  } catch (error) {
+    console.error('DOMPurify 加载失败，Word 导出未消毒（安全风险）:', error);
+  }
 
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office"
 xmlns:w="urn:schemas-microsoft-com:office:word"
 xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="UTF-8">
-  <title>${options.title || options.filename}</title>
+  <title>${escapeHtml(options.title || options.filename)}</title>
   <!--[if gte mso 9]>
   <xml>
     <w:WordDocument>
@@ -268,9 +304,9 @@ xmlns="http://www.w3.org/TR/REC-html40">
   </style>
 </head>
 <body>
-  ${options.title ? `<h1 class="title">${options.title}</h1>` : ''}
-  ${options.author ? `<p class="author">作者: ${options.author}</p>` : ''}
-  ${parsedContent}
+  ${options.title ? `<h1 class="title">${escapeHtml(options.title)}</h1>` : ''}
+  ${options.author ? `<p class="author">作者: ${escapeHtml(options.author)}</p>` : ''}
+  ${safeContent}
 </body>
 </html>`;
 }

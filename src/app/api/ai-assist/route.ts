@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
 import { defaultSystemPrompts } from '@/lib/ai-config';
+import { withApiHandler } from '@/lib/api-utils';
+import { lookup } from 'dns/promises';
 
 // 请求大小限制（1MB）
 const MAX_REQUEST_SIZE = 1 * 1024 * 1024;
@@ -29,36 +31,87 @@ const ALLOWED_API_DOMAINS = [
   'api.baichuan-ai.com',
 ];
 
-// 验证 URL 是否安全（防止 SSRF）
-function isUrlSafe(urlString: string): boolean {
+/**
+ * 判断 IP 是否属于私网/保留地址（P1-9）
+ * 覆盖 IPv4 私网段、IPv6 回环/链路本地/ULA、IPv4-mapped IPv6 等
+ */
+function isPrivateIp(ip: string): boolean {
+  const normalized = ip.toLowerCase().replace(/^::ffff:/, '');
+  if (normalized === '::1' || normalized === '127.0.0.1' || normalized === '0.0.0.0') return true;
+  if (normalized.startsWith('fe80:') || normalized.startsWith('fc') || normalized.startsWith('fd')) {
+    // 链路本地 / IPv6 ULA
+    return true;
+  }
+  if (normalized.includes(':')) {
+    // 其他 IPv6 地址（无法简单判定为公网时保守拒绝内网段）
+    return false;
+  }
+  const parts = normalized.split('.');
+  if (parts.length !== 4) return true;
+  const nums = parts.map(Number);
+  if (nums.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const [a, b] = nums;
+  if (a === 10) return true;                 // 10.0.0.0/8
+  if (a === 127) return true;                // 127.0.0.0/8
+  if (a === 169 && b === 254) return true;   // 169.254.0.0/16（云元数据）
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 168) return true;   // 192.168.0.0/16
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 基准测试
+  return false;
+}
+
+// 验证 URL 是否安全（防止 SSRF，P1-9）
+// 严格白名单：仅允许 ALLOWED_API_DOMAINS 或 AI_API_ENDPOINT 环境变量主机；
+// DNS 解析后对每个 IP 做私网判定，防止 DNS rebinding。
+async function isUrlSafe(urlString: string): Promise<boolean> {
   try {
     const url = new URL(urlString);
     // 仅允许 HTTPS（开发环境可允许 HTTP）
     if (url.protocol !== 'https:' && process.env.NODE_ENV !== 'development') {
       return false;
     }
-    // 检查是否为内网地址
     const hostname = url.hostname;
     if (
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
       hostname === '0.0.0.0' ||
-      hostname.startsWith('192.168.') ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('172.16.') ||
-      hostname === '169.254.169.254' ||
       hostname.endsWith('.internal') ||
       hostname.endsWith('.local')
     ) {
       return false;
     }
-    // 检查域名白名单
+
+    // 严格白名单（不再放行任意公网 HTTPS，P1-9）
     const isAllowed = ALLOWED_API_DOMAINS.some(domain =>
       hostname === domain || hostname.endsWith(`.${domain}`)
     );
-    if (isAllowed) return true;
-    // 自定义端点仅允许公网 HTTPS 域名
-    return url.protocol === 'https:' && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname);
+    // 允许通过 AI_API_ENDPOINT 环境变量配置的自定义端点
+    let envHost: string | null = null;
+    const envEndpoint = process.env.AI_API_ENDPOINT;
+    if (envEndpoint) {
+      try {
+        envHost = new URL(envEndpoint).hostname;
+      } catch {
+        envHost = null;
+      }
+    }
+    const isEnvAllowed = envHost !== null && (hostname === envHost || hostname.endsWith(`.${envHost}`));
+    if (!isAllowed && !isEnvAllowed) {
+      return false;
+    }
+
+    // DNS 解析后对 IP 做二次校验（防 DNS rebinding / 私网映射）
+    const addresses = await lookup(hostname, { all: true });
+    if (!addresses || addresses.length === 0) {
+      return false;
+    }
+    for (const addr of addresses) {
+      if (isPrivateIp(addr.address)) {
+        return false;
+      }
+    }
+    return true;
   } catch {
     return false;
   }
@@ -82,7 +135,7 @@ interface AIRequestBody {
   userMessage?: string;
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // 验证请求大小
     const contentLength = parseInt(request.headers.get('content-length') || '0');
@@ -210,7 +263,7 @@ async function handleTestConnection(configId?: string) {
     );
   }
 
-  if (!isUrlSafe(config.apiEndpoint)) {
+  if (!(await isUrlSafe(config.apiEndpoint))) {
     return NextResponse.json(
       { error: 'API 端点地址不安全，请检查配置' },
       { status: 400 }
@@ -264,8 +317,8 @@ async function handleCustomAIRequest(
     );
   }
 
-  // SSRF 防护：验证 API 端点
-  if (!isUrlSafe(config.apiEndpoint)) {
+  // SSRF 防护：验证 API 端点（P1-9）
+  if (!(await isUrlSafe(config.apiEndpoint))) {
     return NextResponse.json(
       { error: 'API 端点地址不安全' },
       { status: 400 }
@@ -285,6 +338,11 @@ async function handleCustomAIRequest(
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      // 客户端断开时中止上游请求（P1-12）
+      const streamSignal = (controller as unknown as { signal: AbortSignal }).signal;
+      const abortController = new AbortController();
+      const onAbort = () => abortController.abort();
+      streamSignal.addEventListener('abort', onAbort, { once: true });
       try {
         const response = await fetch(`${config.apiEndpoint}/chat/completions`, {
           method: 'POST',
@@ -299,6 +357,7 @@ async function handleCustomAIRequest(
             max_tokens: 2048,
             stream: true,
           }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -383,6 +442,8 @@ async function handleCustomAIRequest(
           encoder.encode(`data: ${JSON.stringify({ error: 'AI 服务暂时不可用' })}\n\n`)
         );
         controller.close();
+      } finally {
+        streamSignal.removeEventListener('abort', onAbort);
       }
     },
   });
@@ -395,6 +456,9 @@ async function handleCustomAIRequest(
     },
   });
 }
+
+// 接入统一限流与错误处理（P1-8）
+export const POST = withApiHandler(postHandler);
 
 // 获取提示词
 function getPrompts(

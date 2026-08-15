@@ -85,40 +85,35 @@ class RateLimiter {
 }
 
 // 全局 Rate Limiter 实例
-export const rateLimiter = new RateLimiter(60000, 100); // 每分钟 100 次请求
+export const rateLimiter = new RateLimiter(60000, 100); // 每分钟 100 次请求（AI/配置等敏感接口）
+// 高频接口（协作光标/同步等）使用更宽松的限制
+export const rateLimiterHigh = new RateLimiter(60000, 600); // 每分钟 600 次请求
 
 /**
  * 获取客户端标识符
+ *
+ * 安全说明（P1-8）：X-Forwarded-For 可由客户端伪造，一律不信任。
+ * 优先级：request.ip（Next 16 平台填充）→ x-real-ip（反向代理填充）→
+ * x-vercel-forwarded-for（Vercel 等平台的真实代理头）→ 'unknown'。
+ * 生产环境应确保反向代理/部署平台填充了可信的 x-real-ip 或 request.ip。
  */
 export function getClientIdentifier(request: NextRequest): string {
-  // 优先使用 X-Forwarded-For
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
+  // Next 16 的 NextRequest 暴露 ip 属性（部署平台填充）
+  const requestIp = (request as NextRequest & { ip?: string }).ip;
+  if (requestIp) return requestIp;
 
-  // 其次使用 X-Real-IP
+  // 优先使用反向代理填充的真实 IP
   const realIp = request.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
+  if (realIp) return realIp;
+
+  // Vercel 等平台的真实代理头（仅信任平台注入，不信任客户端 XFF）
+  const vercelForwarded = request.headers.get('x-vercel-forwarded-for');
+  if (vercelForwarded) {
+    return vercelForwarded.split(',')[0].trim();
   }
 
-  // 最后使用 User-Agent 作为备选
-  const userAgent = request.headers.get('user-agent') || 'unknown';
-  return `ua-${hashString(userAgent)}`;
-}
-
-/**
- * 简单字符串哈希
- */
-function hashString(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
+  // 无可用来源时返回 'unknown'，不再回退到可伪造的 X-Forwarded-For 或 User-Agent
+  return 'unknown';
 }
 
 /**
@@ -206,26 +201,29 @@ export class ApiLogger {
 }
 
 /**
- * 包装 API 处理函数，提供统一的错误处理和日志记录
+ * 包装 API 处理函数，提供统一的错误处理、限流和日志记录
+ * @param handler 处理函数（可接收 Next.js 动态路由上下文作为第二个参数）
+ * @param limiter 使用的限流器（默认 rateLimiter，高频接口可传 rateLimiterHigh）
  */
-export function withApiHandler<T>(
-  handler: (request: NextRequest) => Promise<NextResponse<T>>
+export function withApiHandler(
+  handler: (request: NextRequest, context?: unknown) => Promise<Response>,
+  limiter: RateLimiter = rateLimiter
 ) {
-  return async (request: NextRequest): Promise<NextResponse> => {
+  return async (request: NextRequest, context?: unknown): Promise<Response> => {
     const startTime = Date.now();
     const clientIp = getClientIdentifier(request);
     const path = new URL(request.url).pathname;
 
     try {
       // Rate limiting
-      const rateLimitResult = rateLimiter.check(clientIp);
+      const rateLimitResult = limiter.check(clientIp);
       if (!rateLimitResult.allowed) {
         ApiLogger.warn('Rate limit exceeded', { clientIp, path });
         return ApiResponse.tooManyRequests();
       }
 
       // 执行处理函数
-      const response = await handler(request);
+      const response = await handler(request, context);
 
       // 记录请求日志
       const duration = Date.now() - startTime;

@@ -318,42 +318,137 @@ export class AIConfigManager {
     // 分离敏感与非敏感配置
     const { apiKey: _apiKey, ...safeConfig } = config as AIConfig & { apiKey?: string };
     this.config = { ...this.config, ...safeConfig };
-    
+
     // 如果传入了 apiKey，通过后端 API 保存
     if (config.apiKey !== undefined) {
       this.saveApiKeyToBackend(config.apiKey);
     }
-    
-    if (typeof window !== 'undefined') {
-      try {
-        // 仅保存非敏感配置到 localStorage
-        const { apiKey: _storedKey, ...configToStore } = this.config;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
-      } catch (error) {
-        logger.error('Failed to save AI config', error instanceof Error ? error : undefined);
-      }
+
+    this.persistConfig();
+  }
+
+  /**
+   * 异步保存配置（等待后端保存完成；失败时抛出/返回，供设置页判断）
+   */
+  async saveConfigAsync(config: Partial<AIConfig>): Promise<void> {
+    this.saveConfig(config);
+    if (config.apiKey !== undefined) {
+      await this.saveApiKeyToBackend(config.apiKey);
     }
+  }
+
+  /**
+   * 将非敏感配置持久化到 localStorage（apiKey 不落盘）
+   */
+  private persistConfig(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const { apiKey: _storedKey, ...configToStore } = this.config;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(configToStore));
+    } catch (error) {
+      logger.error('Failed to save AI config', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 向后端发起请求所需的认证头。
+   * - Supabase JWT 模式：由外部登录态注入 access token（此处未接入登录，后续接入时走 Authorization 头）
+   * - 本机/内网共享密钥模式：发送专用请求头 x-ai-config-key，值来自 NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY
+   *   （与后端服务端 env AI_CONFIG_ADMIN_KEY 保持一致；注意该值会暴露给浏览器，仅限单用户/内网部署）
+   */
+  private authHeaders(): Record<string, string> {
+    const sharedKey = process.env.NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY;
+    if (sharedKey) {
+      return { 'x-ai-config-key': sharedKey };
+    }
+    return {};
+  }
+
+  /**
+   * 确保后端存在 AI 配置记录，返回其 id；不存在则创建。
+   */
+  private async ensureConfigSaved(): Promise<string | null> {
+    try {
+      if (this.config.id) return this.config.id;
+
+      const response = await fetch('/api/ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+        body: JSON.stringify({
+          provider: this.config.provider,
+          api_endpoint: this.config.apiEndpoint,
+          model: this.config.model,
+          temperature: this.config.temperature,
+          max_tokens: this.config.maxTokens,
+          enable_system_prompt: this.config.enableSystemPrompt,
+          system_prompt: this.config.systemPrompt,
+          is_default: this.config.isDefault ?? false,
+        }),
+      });
+
+      if (!response.ok) {
+        logger.error(`Failed to create AI config in backend: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      const id = data?.data?.id as string | undefined;
+      if (id) {
+        this.config = { ...this.config, id };
+        this.persistConfig();
+      }
+      return id ?? null;
+    } catch (error) {
+      logger.error('Failed to ensure AI config saved', error instanceof Error ? error : undefined);
+      return null;
+    }
+  }
+
+  /**
+   * 获取后端 AI 配置 id（用于 /api/ai-assist 的 configId 契约，P1-1）。
+   * 优先使用本地已缓存 id；否则从 GET /api/ai-config 取第一条。
+   */
+  async getConfigId(): Promise<string | null> {
+    if (this.config.id) return this.config.id;
+
+    try {
+      const response = await fetch('/api/ai-config', { headers: this.authHeaders() });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const configs = Array.isArray(data?.data) ? data.data : [];
+      const first = configs[0] as { id?: string } | undefined;
+      if (first?.id) {
+        this.config = { ...this.config, id: first.id };
+        this.persistConfig();
+        return first.id;
+      }
+    } catch (error) {
+      logger.error('Failed to fetch AI config id', error instanceof Error ? error : undefined);
+    }
+    return null;
   }
 
   // 通过后端 API 保存 API Key
   private async saveApiKeyToBackend(apiKey: string): Promise<void> {
     try {
-      const config = this.getConfig();
+      const id = await this.ensureConfigSaved();
+      if (!id) {
+        logger.error('Failed to save API key to backend: no config id');
+        return;
+      }
       const response = await fetch('/api/ai-config', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
         body: JSON.stringify({
-          provider: config.provider,
+          id,
           api_key: apiKey,
-          api_endpoint: config.apiEndpoint,
-          model: config.model,
-          temperature: config.temperature,
-          max_tokens: config.maxTokens,
-          system_prompt: config.systemPrompt,
+          temperature: this.config.temperature,
+          max_tokens: this.config.maxTokens,
+          system_prompt: this.config.systemPrompt,
         }),
       });
       if (!response.ok) {
-        logger.error('Failed to save API key to backend');
+        logger.error(`Failed to save API key to backend: ${response.status}`);
       }
     } catch (error) {
       logger.error('Failed to save API key to backend', error instanceof Error ? error : undefined);
@@ -368,7 +463,7 @@ export class AIConfigManager {
   // 重置为默认配置
   resetConfig(): void {
     this.config = defaultAIConfig;
-    
+
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -389,10 +484,12 @@ export class AIConfigManager {
   // 通过后端检查 API Key 是否已配置
   async isApiKeyConfigured(): Promise<boolean> {
     try {
-      const response = await fetch('/api/ai-config');
+      const response = await fetch('/api/ai-config', { headers: this.authHeaders() });
       if (response.ok) {
         const data = await response.json();
-        return !!data.api_key_set;
+        const configs = Array.isArray(data?.data) ? data.data : [];
+        // GET 接口不返回 api_key 明文，仅返回 api_key_set 布尔
+        return configs.some((c: { api_key_set?: boolean }) => !!c.api_key_set);
       }
     } catch {
       // 后端不可用时回退到检查本地标志

@@ -236,13 +236,16 @@ export class CloudSyncManager {
         return { success: true };
       }
 
-      // API 不存在 (404) 或服务不可用 — 降级为本地标记
-      if (response.status === 404) {
-        logger.warn('Sync API not available, document saved locally only');
-        // 标记为本地已保存（不算成功同步，但不算失败）
-        record.syncStatus = 'synced';
-        record.lastSyncedAt = Date.now();
-        return { success: true };
+      // API 不存在或未配置：明确失败，禁止把记录标记为已同步（P1-6）
+      if (response.status === 404 || response.status === 503) {
+        const data = await response.json().catch(() => ({}));
+        const message = data?.error === 'sync not configured'
+          ? '云同步未配置（需设置 Supabase）'
+          : '同步服务不可用';
+        logger.warn(message);
+        const syncError = new Error(message);
+        (syncError as Error & { syncNotConfigured?: boolean }).syncNotConfigured = true;
+        throw syncError;
       }
 
       throw new Error(`Sync failed with status ${response.status}`);
@@ -265,14 +268,32 @@ export class CloudSyncManager {
       detectedAt: Date.now(),
     };
 
-    // 自动解决策略
+    // 自动解决策略（默认 manual）
     if (this.config.conflictResolution !== 'manual') {
       if (this.config.conflictResolution === 'local') {
-        conflict.resolution = 'local';
-        conflict.resolvedAt = Date.now();
-        local.syncStatus = 'synced';
-        this.syncQueue.delete(local.documentId);
+        // 'local' 策略：必须先真正推送本地版本到服务端，成功后才标记完成（P1-6）
+        try {
+          const pushed = await this.syncWithServer(local);
+          if (pushed.success) {
+            conflict.resolution = 'local';
+            conflict.resolvedAt = Date.now();
+            local.syncStatus = 'synced';
+            local.lastSyncedAt = Date.now();
+            this.syncQueue.delete(local.documentId);
+          } else {
+            // 推送失败，保留冲突与 pending
+            local.syncStatus = 'conflict';
+            this.conflicts.set(conflict.id, conflict);
+            this.saveConflict(conflict);
+          }
+        } catch {
+          local.syncStatus = 'conflict';
+          this.conflicts.set(conflict.id, conflict);
+          this.saveConflict(conflict);
+        }
       } else if (this.config.conflictResolution === 'remote') {
+        // 'remote' 策略：覆盖前先备份本地副本（P1-6）
+        this.backupLocalContent(local);
         conflict.resolution = 'remote';
         conflict.resolvedAt = Date.now();
         conflict.mergedContent = remote.content;
@@ -290,6 +311,23 @@ export class CloudSyncManager {
 
     // 触发事件
     this.setStatus('error', { type: 'conflict', conflict });
+  }
+
+  /**
+   * 覆盖本地内容前备份到 localStorage（P1-6）
+   */
+  private backupLocalContent(record: SyncRecord): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const key = `conflict-backup:${record.documentId}`;
+      localStorage.setItem(key, JSON.stringify({
+        content: record.content,
+        version: record.version,
+        backedUpAt: Date.now(),
+      }));
+    } catch (error) {
+      logger.error('Failed to backup local content', error instanceof Error ? error : undefined);
+    }
   }
 
   // 解决冲突

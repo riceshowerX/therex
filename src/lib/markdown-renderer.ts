@@ -56,7 +56,8 @@ const renderer = {
   heading(token: Tokens.Heading): string {
     const { text, depth } = token;
     const id = generateHeadingId(text);
-    return `<h${depth} id="${escapeHtml(id)}" data-heading="${escapeHtml(id)}">${text}</h${depth}>`;
+    // 注意：text 必须先转义，防止标题内嵌原始 HTML 造成 XSS（P0-2）
+    return `<h${depth} id="${escapeHtml(id)}" data-heading="${escapeHtml(id)}">${escapeHtml(text)}</h${depth}>`;
   },
   
   code(token: Tokens.Code): string {
@@ -288,7 +289,8 @@ export async function initMermaid(): Promise<void> {
   mermaid.initialize({
     startOnLoad: false,
     theme: 'default',
-    securityLevel: 'loose',
+    // securityLevel 使用 'strict'，防止图表内嵌原始 HTML 造成 XSS（P0-2）
+    securityLevel: 'strict',
   });
 
   mermaidInitialized = true;
@@ -356,12 +358,13 @@ export async function initECharts(): Promise<void> {
     } catch (error) {
       console.error('ECharts 渲染失败:', error);
       if (chartDiv) {
+        // 错误信息与配置数据回显前必须转义，防止包含攻击者片段的 HTML 注入（P2-20 / P0-2）
         chartDiv.innerHTML = `<div class="text-red-500 p-4">
           <strong>ECharts 渲染失败：</strong>
-          <pre class="mt-2 text-sm">${error instanceof Error ? error.message : String(error)}</pre>
+          <pre class="mt-2 text-sm">${escapeHtml(error instanceof Error ? error.message : String(error))}</pre>
           <details class="mt-2">
             <summary>查看配置数据</summary>
-            <pre class="mt-2 text-xs overflow-auto max-h-40">${configData}</pre>
+            <pre class="mt-2 text-xs overflow-auto max-h-40">${escapeHtml(configData)}</pre>
           </details>
         </div>`;
       }

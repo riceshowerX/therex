@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getStorageManager } from '@/lib/storage/manager';
+import { getStorageManager, resetStorageManager } from '@/lib/storage/manager';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -31,8 +31,8 @@ describe('StorageManager', () => {
 
   beforeEach(() => {
     localStorageMock.clear();
-    // 重置单例
-    vi.resetModules();
+    // 重置单例（注意：静态 import 绑定指向首个模块实例，需用 resetStorageManager 真正重置）
+    resetStorageManager();
     storageManager = getStorageManager();
   });
 
@@ -186,6 +186,80 @@ describe('StorageManager', () => {
       
       const restored = storageManager.restoreVersion(doc.id, v2!.id);
       expect(restored?.content).toBe('Modified');
+    });
+  });
+
+  describe('initialize / loadData / saveData（P0-1 数据持久化）', () => {
+    it('initialize 后应能从 localStorage 载入已有文档', async () => {
+      // 预置持久层数据（模拟上一次会话保存的文档）
+      const persisted = [{
+        id: 'doc_persisted_1',
+        title: '已存在文档',
+        content: '# 内容',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isFavorite: false,
+        tags: [],
+        wordCount: 2,
+        folderId: null,
+      }];
+      localStorageMock.setItem('therex-documents', JSON.stringify(persisted));
+
+      await storageManager.initialize();
+
+      expect(storageManager.isInitialized()).toBe(true);
+      const docs = storageManager.getAllDocuments();
+      expect(docs).toHaveLength(1);
+      expect(docs[0].id).toBe('doc_persisted_1');
+      expect(storageManager.getDocument('doc_persisted_1')?.title).toBe('已存在文档');
+    });
+
+    it('initialize 后 getCurrentDocument 不再隐式创建文档', async () => {
+      await storageManager.initialize();
+      expect(storageManager.getCurrentDocument()).toBeUndefined();
+    });
+
+    it('未初始化时 doSave 不会用空内存覆盖持久层已有数据', async () => {
+      // 预置持久层数据
+      const persisted = [{
+        id: 'doc_keep_1',
+        title: '不能丢',
+        content: 'x',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isFavorite: false,
+        tags: [],
+        wordCount: 1,
+        folderId: null,
+      }];
+      localStorageMock.setItem('therex-documents', JSON.stringify(persisted));
+
+      // 不调用 initialize，直接触发一次保存（模拟旧 bug 场景）
+      storageManager.createDocument({ title: '新文档' });
+      // 手动触发防抖后的实际写入（forceSave 同步执行）
+      storageManager.forceSave();
+
+      const saved = JSON.parse(localStorageMock.getItem('therex-documents') as string);
+      const ids = (saved as Array<{ id: string }>).map(d => d.id);
+      // 持久层已有文档必须保留（不再被覆盖丢失），且新文档一并写入
+      expect(ids).toContain('doc_keep_1');
+      expect(saved).toHaveLength(2);
+    });
+
+    it('初始化后保存的数据应能再次载入', async () => {
+      await storageManager.initialize();
+      const doc = storageManager.createDocument({ title: '持久化测试', content: 'hello world' });
+      storageManager.updateDocument(doc.id, { content: 'updated content' });
+      storageManager.forceSave();
+
+      // 模拟新的管理器实例（重置单例后重新获取）
+      resetStorageManager();
+      const freshManager = getStorageManager();
+      await freshManager.initialize();
+
+      const loaded = freshManager.getDocument(doc.id);
+      expect(loaded).toBeDefined();
+      expect(loaded?.content).toBe('updated content');
     });
   });
 });

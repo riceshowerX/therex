@@ -68,17 +68,18 @@ export default function ShareViewPage() {
   }, [shareId]);
 
   // 验证密码
-  const handlePasswordSubmit = () => {
-    if (!share || !share.password) return;
+  const handlePasswordSubmit = async () => {
+    if (!share) return;
 
-    if (passwordInput === share.password) {
+    const result = await shareManager.validateAccess(shareId, passwordInput);
+    if (result.valid) {
       setIsAuthenticated(true);
       setNeedsPassword(false);
       shareManager.recordView(shareId, {
         referrer: document.referrer,
       });
     } else {
-      toast.error('密码错误');
+      toast.error(result.reason === '密码错误' ? '密码错误' : '访问失败');
     }
   };
 
@@ -120,6 +121,11 @@ export default function ShareViewPage() {
               <p className="text-sm text-muted-foreground">
                 请联系分享者获取新的分享链接
               </p>
+              <Alert className="w-full text-left">
+                <AlertDescription className="text-xs">
+                  提示：当前版本分享功能仅在本机浏览器内可用（数据存储于本地）。跨设备分享需配置 Supabase 云端同步。
+                </AlertDescription>
+              </Alert>
             </div>
           </CardContent>
         </Card>

@@ -102,3 +102,24 @@ Desktop.ini
 .preview
 .cozeproj/reduction
 .codegraph
+
+# pnpm 本地存储（离线安装缓存）
+.pnpm-store-local/
+.pnpm-store/
+
+# 工作区本地数据（个人记忆/会话上下文，不入库）
+.workbuddy/
+
+# 本地数据库 / 数据文件
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+.data/
+
+# 密钥与凭据（防误提交）
+*.pem
+*.key
+*.p12
+credentials.json
+service-account*.json

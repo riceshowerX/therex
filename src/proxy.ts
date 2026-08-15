@@ -29,12 +29,20 @@ const getSecurityHeaders = (isDev: boolean) => [
     value: 'camera=(), microphone=(), geolocation=()',
   },
   // 内容安全策略 - 开发环境放宽限制
+  // 安全说明（P0-2）：
+  // 1. 主防线是渲染层 DOMPurify 消毒；CSP 作为纵深防御。
+  // 2. script-src 保留 'unsafe-inline'：Next.js App Router 依赖内联
+  //    self.__next_f 流式脚本，移除会导致应用无法水合；如需严格模式
+  //    需为内联脚本引入 nonce（后续可接入）。
+  // 3. 新增 script-src-attr 'none'：禁止内联事件处理器（onerror/onclick 等），
+  //    阻断 Markdown 注入 <img onerror=...> 这类最常见的 XSS 向量。
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
       "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://lf-cdn.coze.cn",
+      "script-src-attr 'none'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
       "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://fonts.bytedance.com https://lf-cdn.coze.cn",
       "font-src 'self' https://fonts.gstatic.com https://fonts.bytedance.com https://lf-cdn.coze.cn https://cdn.jsdelivr.net https://*.bytetos.com data:",

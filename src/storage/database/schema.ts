@@ -18,6 +18,7 @@ import {
   integer,
   jsonb,
   index,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { createSchemaFactory } from 'drizzle-zod';
 import { z } from 'zod';
@@ -69,7 +70,7 @@ export const folders = pgTable(
       .notNull()
       .default('default_user'),
     parentId: varchar('parent_id', { length: 36 })
-      .references((): any => folders.id, { onDelete: 'cascade' }), // 自引用外键：父文件夹
+      .references((): AnyPgColumn => folders.id, { onDelete: 'cascade' }), // 自引用外键：父文件夹
     name: varchar('name', { length: 255 }).notNull(),
     color: varchar('color', { length: 7 }), // 十六进制颜色代码，如 #FF5733
     icon: varchar('icon', { length: 50 }),

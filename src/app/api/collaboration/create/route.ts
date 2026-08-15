@@ -4,9 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRoom, exportRoom } from '@/lib/collaboration/server';
+import { createRoom, exportRoom, getUserToken } from '@/lib/collaboration/server';
+import { withApiHandler, rateLimiterHigh } from '@/lib/api-utils';
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = await request.json();
     const { documentId, documentTitle, documentContent, userName } = body;
@@ -15,6 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: '缺少必要参数' },
         { status: 400 }
+      );
+    }
+
+    // 限制文档内容大小（P1-3）
+    if (typeof documentContent === 'string' && documentContent.length > 2 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: '文档内容过大' },
+        { status: 413 }
       );
     }
 
@@ -41,9 +50,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 返回创建者的访问令牌（P1-3）
+    const roomWithCollaborators = roomExport as { collaborators: Array<{ id: string }> };
+    const creator = roomWithCollaborators.collaborators?.[0];
+    const roomToken = creator ? getUserToken(creator.id) : null;
+
     return NextResponse.json({
       success: true,
       room: roomExport,
+      roomToken,
     });
   } catch (error) {
     console.error('Create room error:', error);
@@ -53,3 +68,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// 接入统一限流与错误处理（P1-8）
+export const POST = withApiHandler(postHandler, rateLimiterHigh);

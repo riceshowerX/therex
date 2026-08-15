@@ -92,9 +92,13 @@ export default function SettingsPage() {
   }, []);
 
   // 保存 AI 配置
-  const handleSaveConfig = () => {
-    aiConfigManager.saveConfig(config);
-    toast.success('AI 配置已保存');
+  const handleSaveConfig = async () => {
+    try {
+      await aiConfigManager.saveConfigAsync(config);
+      toast.success('AI 配置已保存');
+    } catch {
+      toast.error('AI 配置保存失败');
+    }
   };
 
   // 重置配置
@@ -104,7 +108,7 @@ export default function SettingsPage() {
     toast.success('配置已重置');
   };
 
-  // 测试连接
+  // 测试连接（真实测试后端保存的配置，P1-2）
   const handleTestConnection = async () => {
     if (!config.apiKey) {
       toast.error('请先输入 API Key');
@@ -115,26 +119,28 @@ export default function SettingsPage() {
     setTestResult(null);
 
     try {
-      // 先保存配置，让后端能读取到
-      aiConfigManager.saveConfig(config);
+      // 先保存配置到后端，取得 configId
+      await aiConfigManager.saveConfigAsync(config);
+      const configId = await aiConfigManager.getConfigId();
+      if (!configId) {
+        setTestResult('error');
+        toast.error('保存配置失败（后端认证或服务不可用），无法测试连接');
+        return;
+      }
 
-      const response = await fetch('/api/ai/service', {
+      const response = await fetch('/api/ai-assist', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'complete',
-          content: 'Hello',
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'test', configId }),
       });
 
-      if (response.ok) {
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success) {
         setTestResult('success');
         toast.success('连接测试成功');
       } else {
         setTestResult('error');
-        const data = await response.json().catch(() => ({}));
         toast.error(`连接测试失败: ${data.error || '未知错误'}`);
       }
     } catch {
