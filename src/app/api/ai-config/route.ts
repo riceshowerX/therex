@@ -8,51 +8,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
-import { serverEnv } from '@/lib/env';
 import { z } from 'zod';
-import { withApiHandler } from '@/lib/api-utils';
+import { withApiHandler, getAuthenticatedUserId } from '@/lib/api-utils';
 
 /**
- * 鉴权策略（临时方案，后续接入正式认证，P0-3）：
- * 1. 若配置了 SUPABASE_SERVICE_ROLE_KEY：
- *    - 校验 Authorization: Bearer <Supabase JWT>
- *    - 通过 supabase.auth.getUser(token) 换取真实 user.id
- *    - 无效/缺失 token 一律返回 401
- * 2. 若未配置 Supabase（本机/内网单用户共享密钥模式）：
- *    - 校验专用请求头 x-ai-config-key === 服务端环境变量 AI_CONFIG_ADMIN_KEY
- *    - 共享密钥只存在于服务端 env；Authorization 头保留给未来 Supabase JWT 使用
- *    - 未设置 AI_CONFIG_ADMIN_KEY 时：生产环境一律 401；非生产环境放行并输出警告（便于本地开发）
- * 3. 禁止把任意字符串直接当作身份；禁止 default_user 兜底。
+ * 鉴权说明（P0-3 / M8）：
+ * - 统一鉴权逻辑收敛于 src/lib/api-utils.ts 的 getAuthenticatedUserId：
+ *   1. Supabase JWT（Authorization: Bearer <token>）→ 真实 user.id
+ *   2. 共享密钥模式（x-ai-config-key === AI_CONFIG_ADMIN_KEY）：
+ *      仅允许非 production 或显式设置 ALLOW_SHARED_KEY_AUTH=true（M8）
+ *   3. 禁止 default_user 兜底。
  */
-async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
-  // 方案 1：Supabase JWT 校验（Authorization 头）
-  const authHeader = request.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.slice(7).trim();
-    if (token) {
-      const adminClient = getSupabaseAdminClient();
-      if (adminClient) {
-        const { data, error } = await adminClient.auth.getUser(token);
-        if (error || !data.user) return null;
-        return data.user.id;
-      }
-    }
-  }
-
-  // 方案 2：共享密钥模式（专用请求头 x-ai-config-key，密钥仅存在于服务端 env）
-  const adminKey = serverEnv.AI_CONFIG_ADMIN_KEY;
-  if (adminKey) {
-    const keyHeader = request.headers.get('x-ai-config-key');
-    return keyHeader === adminKey ? 'local-admin' : null;
-  }
-
-  // 未配置任何鉴权机制
-  if (process.env.NODE_ENV === 'production') {
-    return null;
-  }
-  console.warn('[ai-config] 未配置 SUPABASE_SERVICE_ROLE_KEY 或 AI_CONFIG_ADMIN_KEY，开发环境临时放行');
-  return 'dev-user';
-}
 
 // 数据库返回的 snake_case 字段映射为 camelCase
 interface DBAIConfig {
@@ -124,9 +90,10 @@ async function getHandler(request: NextRequest) {
     }
     const client = getSupabaseAdminClient();
     if (!client) {
+      // M12：未配置时返回 503，前端据此区分"未配置"与"已配置但无数据"
       return NextResponse.json(
-        { data: [], message: 'Supabase 未配置，使用本地存储' },
-        { status: 200 }
+        { error: 'not configured', message: 'Supabase 未配置' },
+        { status: 503 }
       );
     }
     

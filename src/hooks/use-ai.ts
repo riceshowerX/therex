@@ -3,7 +3,7 @@
  * 提供前端调用 AI 服务的便捷接口
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 // AI 操作类型
 export type AIAction =
@@ -228,6 +228,12 @@ export function useAIChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // M11：用 ref 保存最新 history，避免连续快速发送时闭包携带旧值导致上下文错乱
+  const historyRef = useRef(history);
+
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
 
   const sendMessage = useCallback(async (
     message: string,
@@ -240,8 +246,12 @@ export function useAIChat() {
 
     abortControllerRef.current = new AbortController();
 
-    // 添加用户消息
-    setHistory(prev => [...prev, { role: 'user', content: message }]);
+    // 添加用户消息（同步更新 ref，保证后续请求立即拿到最新 history）
+    setHistory(prev => {
+      const next = [...prev, { role: 'user' as const, content: message }];
+      historyRef.current = next;
+      return next;
+    });
     setCurrentResponse('');
     setIsLoading(true);
     setError(null);
@@ -256,7 +266,7 @@ export function useAIChat() {
           action: 'chat',
           question: message,
           content: context,
-          chatHistory: history,
+          chatHistory: historyRef.current,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -287,8 +297,12 @@ export function useAIChat() {
           if (line.startsWith('data: ')) {
             const data = line.slice(6).trim();
             if (data === '[DONE]') {
-              // 添加助手回复到历史
-              setHistory(prev => [...prev, { role: 'assistant', content: accumulatedContent }]);
+              // 添加助手回复到历史（同步更新 ref）
+              setHistory(prev => {
+                const next = [...prev, { role: 'assistant' as const, content: accumulatedContent }];
+                historyRef.current = next;
+                return next;
+              });
               setCurrentResponse('');
               setIsLoading(false);
               return;
@@ -327,7 +341,11 @@ export function useAIChat() {
         }
       }
 
-      setHistory(prev => [...prev, { role: 'assistant', content: accumulatedContent }]);
+      setHistory(prev => {
+        const next = [...prev, { role: 'assistant' as const, content: accumulatedContent }];
+        historyRef.current = next;
+        return next;
+      });
       setCurrentResponse('');
       setIsLoading(false);
     } catch (err) {
@@ -338,7 +356,7 @@ export function useAIChat() {
       setError(err instanceof Error ? err.message : '请求失败');
       setIsLoading(false);
     }
-  }, [history]);
+  }, []);
 
   const stop = useCallback(() => {
     if (abortControllerRef.current) {
@@ -426,13 +444,16 @@ export function useAICompletion() {
 
         const decoder = new TextDecoder();
         let accumulatedContent = '';
+        let sseBuffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          // M2：保留 buffer + stream:true，避免跨 chunk 断行丢字
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() || '';
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
@@ -452,6 +473,22 @@ export function useAICompletion() {
               } catch {
                 // 忽略解析错误
               }
+            }
+          }
+        }
+
+        // 处理缓冲区剩余数据
+        if (sseBuffer.startsWith('data: ')) {
+          const data = sseBuffer.slice(6).trim();
+          if (data && data !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                accumulatedContent += parsed.content;
+                setSuggestion(accumulatedContent);
+              }
+            } catch {
+              // 忽略解析错误
             }
           }
         }

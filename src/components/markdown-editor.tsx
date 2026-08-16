@@ -154,7 +154,9 @@ import { shareManager } from '@/lib/share';
 import { cloudSyncManager, type SyncStatus } from '@/lib/sync';
 import { extendedProviderPresets, type ExtendedAIProvider } from '@/lib/ai-providers';
 import { PluginMarketPanel } from '@/components/plugins/PluginMarketPanel';
+import { PermissionRequestDialog } from '@/components/plugins/PermissionRequestDialog';
 import { pluginManager } from '@/lib/plugins/manager';
+import type { PluginPermission } from '@/lib/plugins/manager';
 
 // 动态导入编辑器组件
 const MDEditor = dynamic(
@@ -285,6 +287,14 @@ export default function MarkdownEditor() {
   
   // 插件管理
   const [showPluginMarket, setShowPluginMarket] = useState(false);
+
+  // 插件权限请求（M4：无回调时默认拒绝；此处注入 PermissionRequestDialog）
+  const [permissionRequest, setPermissionRequest] = useState<{
+    pluginId: string;
+    pluginName: string;
+    permissions: PluginPermission[];
+    resolve: (granted: boolean) => void;
+  } | null>(null);
   
   // 云端同步
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -362,7 +372,7 @@ export default function MarkdownEditor() {
         complete: async (prompt, options) => {
           const response = await fetch('/api/ai/service', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
             body: JSON.stringify({ action: 'chat', question: prompt, content: options?.systemPrompt }),
           });
           
@@ -402,7 +412,7 @@ export default function MarkdownEditor() {
         streamComplete: async (prompt, onChunk, options) => {
           const response = await fetch('/api/ai/service', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
             body: JSON.stringify({ action: 'chat', question: prompt, content: options?.systemPrompt }),
           });
           
@@ -434,6 +444,12 @@ export default function MarkdownEditor() {
             }
           }
         },
+      },
+      // M4：插件权限请求接入确认对话框；未提供回调时 PluginManager 默认拒绝
+      onPermissionRequest: (pluginId, pluginName, permissions) => {
+        return new Promise<boolean>((resolve) => {
+          setPermissionRequest({ pluginId, pluginName, permissions, resolve });
+        });
       },
     });
 
@@ -736,10 +752,10 @@ export default function MarkdownEditor() {
 
   // ==================== AI 对话模式 ====================
 
-  // 检查 AI 配置
-  const checkAIConfig = useCallback((action: string): boolean => {
-    const config = aiConfigManager.getConfig();
-    if (!config.apiKey) {
+  // 检查 AI 配置（S2：异步检查后端 api_key_set，修复旧 AI 入口被永久拦截问题）
+  const checkAIConfig = useCallback(async (action: string): Promise<boolean> => {
+    const configured = await aiConfigManager.isApiKeyConfigured();
+    if (!configured) {
       setAIConfigAlertAction(action);
       setShowAIConfigAlert(true);
       return false;
@@ -748,8 +764,8 @@ export default function MarkdownEditor() {
   }, []);
 
   // 打开 AI 对话时检查配置
-  const handleOpenAIChat = useCallback(() => {
-    if (!checkAIConfig('chat')) return;
+  const handleOpenAIChat = useCallback(async () => {
+    if (!(await checkAIConfig('chat'))) return;
     setShowAIChat(true);
   }, [checkAIConfig]);
 
@@ -758,19 +774,17 @@ export default function MarkdownEditor() {
     if (!chatInput.trim() || chatLoading) return;
     
     // 检查 AI 配置
-    if (!checkAIConfig('chat')) return;
+    if (!(await checkAIConfig('chat'))) return;
     
     const userMessage = chatInput.trim();
     setChatInput('');
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setChatLoading(true);
 
-    const config = aiConfigManager.getConfig();
-
     try {
       const response = await fetch('/api/ai/service', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
         body: JSON.stringify({
           action: 'chat',
           content,
@@ -848,28 +862,34 @@ export default function MarkdownEditor() {
 
   // AI 写作助手
   const handleAIAssist = useCallback(async (action: string, selection?: string) => {
-    // 检查 AI 配置
-    if (!checkAIConfig(action)) return;
+    // 检查 AI 配置（异步）
+    if (!(await checkAIConfig(action))) return;
     
     setAiLoading(true);
     setAiResult('');
     setAiAction(action);
     setShowAIPanel(true);
 
-    // 获取最新的 AI 配置
-    const config = aiConfigManager.getConfig();
+    // S3：统一走 /api/ai-assist（其 getPrompts 已实现 rewrite/title/fix/explain 等全部菜单动作）
+    const configId = await aiConfigManager.getConfigId();
+    if (!configId) {
+      setAiLoading(false);
+      toast.error('请先在设置中保存 AI 配置');
+      return;
+    }
 
     try {
-      const response = await fetch('/api/ai/service', {
+      const response = await fetch('/api/ai-assist', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...aiConfigManager.getAuthHeaders(),
         },
         body: JSON.stringify({
           action,
           content,
-          text: content,
           selection: selection || '',
+          configId,
         }),
       });
 
@@ -1033,36 +1053,9 @@ export default function MarkdownEditor() {
           saveAs(blob, filename);
           break;
         case 'html': {
-          // 导出 HTML 前对内容消毒，防止文档原始 HTML 进入导出文件执行（P2-18 / P0-2）
-          let safeContent = content;
-          try {
-            const { default: DOMPurify } = await import('dompurify');
-            safeContent = DOMPurify.sanitize(content, {
-              ALLOW_DATA_ATTR: true,
-              USE_PROFILES: { html: true },
-            });
-          } catch (error) {
-            console.error('DOMPurify 加载失败，HTML 导出未消毒（安全风险）:', error);
-          }
-          const htmlContent = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css">
-  <style>
-    body { box-sizing: border-box; max-width: 900px; margin: 0 auto; padding: 40px 20px; }
-    .markdown-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-  </style>
-</head>
-<body class="markdown-body">
-${safeContent}
-</body>
-</html>`;
-          blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-          filename = `${title}.html`;
-          saveAs(blob, filename);
+          // S6：统一走 documentExporter（内部先 marked 渲染 + DOMPurify 消毒），
+          // 禁止"未渲染 Markdown 源码直接包进 HTML"的旧路径。
+          await documentExporter.export(content, title, { format: 'html' });
           break;
         }
         case 'txt':
@@ -1089,6 +1082,12 @@ ${safeContent}
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+
+      // L4：限制导入文件大小（5MB），防止大文件卡顿/内存压力
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('文件过大，请导入小于 5MB 的文件');
+        return;
+      }
 
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1403,23 +1402,46 @@ ${safeContent}
     toast.success('设置已导出');
   }, [appSettings]);
 
-  // 导入设置
+  // 导入设置（L4：限制文件大小 + schema 校验后再覆盖，防止畸形文件破坏运行）
   const handleImportSettings = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        try {
-          const text = await file.text();
-          const imported = JSON.parse(text);
-          setAppSettings(imported);
-          localStorage.setItem('therex-settings', JSON.stringify(imported));
-          toast.success('设置已导入');
-        } catch {
-          toast.error('导入失败：无效的设置文件');
+      if (!file) return;
+      if (file.size > 1 * 1024 * 1024) {
+        toast.error('设置文件过大（>1MB）');
+        return;
+      }
+      try {
+        const text = await file.text();
+        const imported = JSON.parse(text) as unknown;
+        // 手写 schema 校验：仅接受包含已知字段的对象
+        if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
+          throw new Error('invalid settings shape');
         }
+        const obj = imported as Record<string, unknown>;
+        if (!obj.editor || typeof obj.editor !== 'object') throw new Error('missing editor');
+        if (!obj.theme || typeof obj.theme !== 'object') throw new Error('missing theme');
+        if (!obj.storage || typeof obj.storage !== 'object') throw new Error('missing storage');
+        if (!obj.notifications || typeof obj.notifications !== 'object') throw new Error('missing notifications');
+        if (typeof obj.language !== 'string') throw new Error('invalid language');
+
+        const validated = {
+          editor: { fontSize: 14, fontFamily: 'JetBrains Mono, Fira Code, monospace', lineHeight: 1.6, tabSize: 2, wordWrap: true, lineNumbers: true, minimap: false, autoSave: true, autoSaveDelay: 500, spellCheck: true, highlightActiveLine: true, showInvisibles: false, indentWithTabs: false, ...(obj.editor as Record<string, unknown>) },
+          theme: { mode: 'system', accentColor: '#3b82f6', fontFamily: 'Inter, system-ui, sans-serif', borderRadius: 8, animations: true, compactMode: false, ...(obj.theme as Record<string, unknown>) },
+          storage: { provider: 'local', autoSync: false, syncInterval: 30000, maxVersions: 20, compressionEnabled: false, ...(obj.storage as Record<string, unknown>) },
+          notifications: { soundEnabled: false, desktopNotifications: false, emailNotifications: false, autoSaveNotifications: true, ...(obj.notifications as Record<string, unknown>) },
+          ai: Array.isArray(obj.ai) ? obj.ai : [],
+          shortcuts: obj.shortcuts && typeof obj.shortcuts === 'object' ? obj.shortcuts : {},
+          language: obj.language,
+        };
+        setAppSettings(validated as AppSettings);
+        localStorage.setItem('therex-settings', JSON.stringify(validated));
+        toast.success('设置已导入');
+      } catch {
+        toast.error('导入失败：无效的设置文件');
       }
     };
     input.click();
@@ -1473,10 +1495,25 @@ ${safeContent}
     toast.success('设置已恢复默认');
   }, []);
 
-  // 清除数据
+  // 清除数据（L5：仅删除 therex-* 前缀与 known keys，不清整个 origin）
   const handleClearData = useCallback(() => {
-    localStorage.clear();
-    toast.success('所有数据已清除');
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      if (
+        key.startsWith('therex') ||
+        key.startsWith('markdown-editor-') ||
+        key.startsWith('offline-sync:') ||
+        key.startsWith('conflict:') ||
+        key.startsWith('plugin:') ||
+        key === 'secure-documents'
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    toast.success('Therex 数据已清除');
     window.location.reload();
   }, []);
 
@@ -1516,7 +1553,7 @@ ${safeContent}
 
       const response = await fetch('/api/ai-assist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
         body: JSON.stringify(body),
       });
 
@@ -1525,21 +1562,7 @@ ${safeContent}
         return `AI 请求失败: ${errorData.error || response.status}`;
       }
 
-      // 记录 AI 使用统计（估算 token，P2-10）
-      try {
-        aiUsageTracker.recordUsage({
-          provider: config.provider,
-          model: config.model,
-          action: feature,
-          inputText: prompt,
-          outputText: '',
-          success: true,
-        });
-      } catch (usageError) {
-        console.warn('Failed to record AI usage:', usageError);
-      }
-
-      // 流式响应处理
+      // 流式响应处理（M3：流式读取结束后统一统计真实 outputText，避免恒为 ''）
       async function* generator() {
         const reader = response.body?.getReader();
         if (!reader) {
@@ -1549,6 +1572,7 @@ ${safeContent}
         
         const decoder = new TextDecoder();
         let buffer = '';
+        let outputText = '';
         
         while (true) {
           const { done, value } = await reader.read();
@@ -1565,6 +1589,7 @@ ${safeContent}
               try {
                 const parsed = JSON.parse(data);
                 if (parsed.content) {
+                  outputText += parsed.content;
                   yield parsed.content;
                 }
               } catch {
@@ -1572,6 +1597,20 @@ ${safeContent}
               }
             }
           }
+        }
+
+        // 流式读取结束后，用真实 outputText 统计（M3）
+        try {
+          aiUsageTracker.recordUsage({
+            provider: config.provider,
+            model: config.model,
+            action: feature,
+            inputText: prompt,
+            outputText,
+            success: true,
+          });
+        } catch (usageError) {
+          console.warn('Failed to record AI usage:', usageError);
         }
       }
 
@@ -3100,6 +3139,29 @@ ${safeContent}
         open={showThemeMarket}
         onClose={() => setShowThemeMarket(false)}
       />
+
+      {/* 插件权限请求对话框（M4） */}
+      {permissionRequest && (
+        <PermissionRequestDialog
+          open={!!permissionRequest}
+          onOpenChange={(open) => {
+            if (!open && permissionRequest) {
+              permissionRequest.resolve(false);
+              setPermissionRequest(null);
+            }
+          }}
+          pluginName={permissionRequest.pluginName}
+          permissions={permissionRequest.permissions}
+          onAllow={() => {
+            permissionRequest.resolve(true);
+            setPermissionRequest(null);
+          }}
+          onDeny={() => {
+            permissionRequest.resolve(false);
+            setPermissionRequest(null);
+          }}
+        />
+      )}
 
       {/* 插件管理面板 */}
       <PluginMarketPanel

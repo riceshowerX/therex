@@ -116,22 +116,25 @@ export function createRoom(
   documentId: string,
   documentTitle: string,
   documentContent: string,
-  creatorName: string
+  creatorName: string,
+  rateLimitKey?: string
 ): ServerRoom | { error: string } {
   // 房间总数上限
   if (rooms.size >= MAX_ROOMS) {
     return { error: '房间数量已达上限，请稍后重试' };
   }
 
-  // 用户速率限制
+  // M7：限流键改用服务端身份（真实 IP 等），不再信任客户端自报的 creatorName
+  const rateKey = rateLimitKey || creatorName;
   const now = Date.now();
-  const userCreationTimes = userRoomCreationLog.get(creatorName) || [];
-  const recentCreations = userCreationTimes.filter(t => now - t < RATE_LIMIT_WINDOW);
-  if (recentCreations.length >= RATE_LIMIT_ROOMS_PER_USER) {
+  const userCreationTimes = (userRoomCreationLog.get(rateKey) || []).filter(t => now - t < RATE_LIMIT_WINDOW);
+  if (userCreationTimes.length >= RATE_LIMIT_ROOMS_PER_USER) {
     return { error: '创建房间过于频繁，请稍后重试' };
   }
-  recentCreations.push(now);
-  userRoomCreationLog.set(creatorName, recentCreations);
+  userCreationTimes.push(now);
+  // M7：记录条数上限，防止内存无限膨胀
+  const trimmed = userCreationTimes.slice(-100);
+  userRoomCreationLog.set(rateKey, trimmed);
 
   const roomId = generateRoomId();
   const creatorId = randomUUID();

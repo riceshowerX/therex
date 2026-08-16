@@ -337,7 +337,8 @@ ${type ? `文档类型：${typeGuides[type]}` : ''}
   ): AsyncGenerator<string> {
     let context = '';
 
-    // 如果提供了文档内容，先添加到知识库
+    // M13：注释与实现对齐——当前实现仅搜索既有知识库，不自动入库文档内容。
+    // 若希望"先添加文档到知识库再问答"，需先调用 addToKnowledgeBase 再搜索。
     if (documentContent) {
       const searchResults = await this.searchKnowledge(question, 3, 0.3);
       if (searchResults.length > 0) {

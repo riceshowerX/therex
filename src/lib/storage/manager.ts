@@ -338,13 +338,31 @@ class StorageManager {
     if (!this.folders.has(id)) return false;
 
     if (mode === 'cascade') {
-      // 级联删除所有子文档
+      // L3：递归收集所有后代文件夹，一并删除其中文档（避免子文件夹内文档成孤儿）
+      const descendantFolderIds = new Set<string>();
+      const collect = (parentId: string): void => {
+        this.folders.forEach((folder, folderId) => {
+          if (folder.parentId === parentId && !descendantFolderIds.has(folderId)) {
+            descendantFolderIds.add(folderId);
+            collect(folderId);
+          }
+        });
+      };
+      collect(id);
+
+      const allFolderIds = new Set([id, ...descendantFolderIds]);
       this.documents.forEach((doc, docId) => {
-        if (doc.folderId === id) {
+        if (doc.folderId && allFolderIds.has(doc.folderId)) {
           this.documents.delete(docId);
           this.versions.delete(docId);
         }
       });
+
+      // 删除所有后代文件夹与自身
+      descendantFolderIds.forEach(folderId => this.folders.delete(folderId));
+      this.folders.delete(id);
+      this.saveData();
+      return true;
     } else {
       // 将文档移到根目录
       this.documents.forEach((doc, docId) => {
@@ -540,13 +558,26 @@ class StorageManager {
 
   /**
    * 切换存储并迁移数据
+   *
+   * S8：仅 local → local 为安全无操作；IndexedDB/Supabase 等后端尚未接入真实适配器，
+   * 明确抛出错误，禁止"假迁移"误导用户。
    */
-  async migrateTo(newProvider: StorageProvider, _config?: unknown): Promise<{ success: number; failed: number }> {
+  async migrateTo(newProvider: StorageProvider, config?: unknown): Promise<{ success: number; failed: number }> {
+    if (newProvider !== 'local') {
+      throw new Error(
+        `存储后端 "${newProvider}" 尚未接入真实迁移能力，暂不支持切换（当前仅支持 localStorage）`
+      );
+    }
+
+    // 持久化配置（local → local 保持现有配置）
+    if (config && typeof config === 'object') {
+      const cfg = config as Partial<LocalStorageConfig>;
+      this.config = { provider: 'local', prefix: cfg.prefix || DEFAULT_PREFIX };
+      this.saveConfig();
+    }
+
     // 导出当前数据
     const data = this.exportAllData();
-
-    // 切换到新的存储后端（目前仅支持 localStorage）
-    // 未来可以扩展支持 IndexedDB、Supabase 等
 
     // 清空当前数据
     this.documents.clear();

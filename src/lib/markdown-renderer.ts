@@ -45,6 +45,92 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * 等待客户端库（katex/hljs）加载完成（M10）。
+ * 首次打开文档时 katex/hljs 可能尚未加载完，useMemo 已执行导致公式/高亮缺失；
+ * 调用方 await 此函数后可驱动一次重渲染。
+ */
+export async function ensureClientLibsLoaded(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  await loadClientLibs();
+}
+
+// ==================== ECharts 配置消毒（S5） ====================
+
+// 禁止的键：可注入 HTML / 可执行代码的字段（大小写不敏感）
+const ECHARTS_BLOCKED_KEYS = new Set([
+  'formatter',
+  'renderitem',
+  'rich',
+  'backgroundcolor',
+  'graphic',
+  'onclick',
+  'onmousedown',
+  'onmouseup',
+  'onmouseover',
+  'onmouseout',
+  'onmousemove',
+  'onkeydown',
+  'onkeyup',
+  'onkeypress',
+  'onchange',
+  'onerror',
+  'onload',
+  'onscroll',
+  'onfocus',
+  'onblur',
+]);
+
+/** 值级安全校验：字符串中不允许出现 HTML 标签或 javascript: 伪协议 */
+function isSafeEChartsValue(value: unknown): boolean {
+  if (typeof value === 'string') {
+    if (/<[a-z/!]/i.test(value) || /javascript:/i.test(value)) return false;
+  }
+  return true;
+}
+
+/** 深度清理 ECharts 配置对象：剥离 formatter/rich/backgroundColor/on* 等危险键 */
+function sanitizeEChartsValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(sanitizeEChartsValue)
+      .filter(v => isSafeEChartsValue(v));
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      const lower = key.toLowerCase();
+      if (ECHARTS_BLOCKED_KEYS.has(lower) || lower.startsWith('on') || lower.endsWith('formatter')) {
+        continue;
+      }
+      const cleaned = sanitizeEChartsValue(val);
+      if (isSafeEChartsValue(cleaned)) {
+        out[key] = cleaned;
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * 对 echarts 代码块 JSON 做 schema 白名单校验（S5）。
+ * 返回消毒后的 JSON 字符串；若解析失败或消毒后为空，返回 ''。
+ * 防止 tooltip.formatter / backgroundColor / rich / 事件属性等可注入 HTML 的字段
+ * 进入 chart.setOption，杜绝存储型 XSS。
+ */
+export function sanitizeEChartsConfig(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object') return '';
+    const cleaned = sanitizeEChartsValue(parsed);
+    if (cleaned === null || typeof cleaned !== 'object') return '';
+    return JSON.stringify(cleaned);
+  } catch {
+    return '';
+  }
+}
+
+/**
  * 生成标题 ID（与目录生成逻辑保持一致）
  */
 function generateHeadingId(text: string): string {
@@ -69,9 +155,14 @@ const renderer = {
       return `<div class="mermaid-container"><pre class="mermaid">${escapeHtml(text)}</pre></div>`;
     }
     
-    // 处理 ECharts 图表
+    // 处理 ECharts 图表（S5：先消毒配置，剥离可注入 HTML 的字段）
     if (language === 'echarts') {
-      const encodedCode = encodeURIComponent(text.trim());
+      const safeConfig = sanitizeEChartsConfig(text.trim());
+      if (!safeConfig) {
+        // 消毒失败/为空时回退为普通代码块
+        return `<pre class="hljs"><code class="language-echarts">${escapeHtml(text)}</code></pre>`;
+      }
+      const encodedCode = encodeURIComponent(safeConfig);
       return `<div class="echarts-container" data-chart-config="${encodedCode}"><div class="echarts-chart"></div></div>`;
     }
     
@@ -311,11 +402,64 @@ export async function initMermaid(): Promise<void> {
 /**
  * 初始化 ECharts 图表
  * 在客户端调用，渲染所有 ECharts 图表
+ *
+ * L7：改用 echarts/core + 按需注册，避免全量引入（~1MB+）。
+ * 注册常用图表/组件；未注册的类型会在 setOption 时提示，属预期行为。
  */
 export async function initECharts(): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  const echarts = await import('echarts');
+  // 按需注册（L7）
+  const echarts = await import('echarts/core');
+  const charts = await import('echarts/charts');
+  const components = await import('echarts/components');
+  const renderers = await import('echarts/renderers');
+  const features = await import('echarts/features');
+
+  echarts.use([
+    charts.BarChart,
+    charts.LineChart,
+    charts.PieChart,
+    charts.ScatterChart,
+    charts.EffectScatterChart,
+    charts.RadarChart,
+    charts.FunnelChart,
+    charts.GaugeChart,
+    charts.CandlestickChart,
+    charts.HeatmapChart,
+    charts.TreeChart,
+    charts.TreemapChart,
+    charts.SunburstChart,
+    charts.GraphChart,
+    charts.SankeyChart,
+    charts.BoxplotChart,
+    charts.ParallelChart,
+    charts.LinesChart,
+    charts.PictorialBarChart,
+    charts.CustomChart,
+    components.TitleComponent,
+    components.TooltipComponent,
+    components.GridComponent,
+    components.LegendComponent,
+    components.DataZoomComponent,
+    components.VisualMapComponent,
+    components.ToolboxComponent,
+    components.DatasetComponent,
+    components.MarkLineComponent,
+    components.MarkPointComponent,
+    components.MarkAreaComponent,
+    components.PolarComponent,
+    components.RadarComponent,
+    components.GeoComponent,
+    components.SingleAxisComponent,
+    components.ParallelComponent,
+    components.CalendarComponent,
+    components.GraphicComponent,
+    components.AriaComponent,
+    renderers.CanvasRenderer,
+    features.LabelLayout,
+    features.UniversalTransition,
+  ]);
 
   // 查找所有 ECharts 容器
   const echartsContainers = document.querySelectorAll('.echarts-container');
@@ -333,9 +477,13 @@ export async function initECharts(): Promise<void> {
     cleanupEChartsInstance(container as HTMLElement);
 
     try {
-      // 解码并解析 JSON 配置
+      // 解码并解析 JSON 配置（S5：消毒后再解析，防止 formatter/on* 等注入）
       const decodedConfig = decodeURIComponent(configData);
-      const config = JSON.parse(decodedConfig);
+      const safeConfig = sanitizeEChartsConfig(decodedConfig);
+      if (!safeConfig) {
+        throw new Error('ECharts 配置不合法（已拦截潜在注入字段）');
+      }
+      const config = JSON.parse(safeConfig);
 
       // 创建图表实例
       const chart = echarts.init(chartDiv);

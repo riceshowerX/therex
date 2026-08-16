@@ -180,8 +180,12 @@ export function generatePassword(length: number = 16): string {
 
   const getRandomInt = (max: number): number => {
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      // M9：拒绝采样消除 % 取模偏差
+      const limit = Math.floor(0x100000000 / max) * max;
       const buf = new Uint32Array(1);
-      crypto.getRandomValues(buf);
+      do {
+        crypto.getRandomValues(buf);
+      } while (buf[0] >= limit);
       return buf[0] % max;
     }
     return Math.floor(Math.random() * max);

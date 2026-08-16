@@ -6,7 +6,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAIService, AIServiceConfig } from '@/lib/ai/service';
 import { HeaderUtils } from 'coze-coding-dev-sdk';
-import { withApiHandler } from '@/lib/api-utils';
+import { withApiHandler, getAuthenticatedUserId, isSafeExternalUrl } from '@/lib/api-utils';
+
+// 请求体/内容长度限制（F3）
+const MAX_AI_REQUEST_BODY = 1 * 1024 * 1024; // 1MB
+const MAX_AI_CONTENT_LENGTH = 100000; // 100,000 字符
+const MAX_CHAT_HISTORY = 20; // 最多 20 轮
+const MAX_CHAT_MESSAGE_LENGTH = 4000; // 单条消息 4000 字符
 
 // 请求体接口
 interface AIRequest {
@@ -33,6 +39,24 @@ interface AIRequest {
 
 async function postHandler(request: NextRequest) {
   try {
+    // F3：调用者鉴权（与 ai-config / ai-assist 一致）
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
+
+    // F3：请求体大小限制
+    const contentLength = parseInt(request.headers.get('content-length') || '0');
+    if (contentLength > MAX_AI_REQUEST_BODY) {
+      return NextResponse.json(
+        { error: '请求体过大，请减少内容' },
+        { status: 413 }
+      );
+    }
+
     const body: AIRequest = await request.json();
     const {
       action,
@@ -55,6 +79,35 @@ async function postHandler(request: NextRequest) {
       chatHistory,
       config
     } = body;
+
+    // F3：文本长度限制
+    const textFields = [content, text, selection, topic, outline, question];
+    for (const field of textFields) {
+      if (typeof field === 'string' && field.length > MAX_AI_CONTENT_LENGTH) {
+        return NextResponse.json(
+          { error: '内容过长，请分段处理' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // F3：imageUrl 仅允许 https，且拦截内网/保留地址（SSRF）
+    if (imageUrl) {
+      if (!isSafeExternalUrl(imageUrl)) {
+        return NextResponse.json(
+          { error: '图片 URL 不安全，仅允许公网 HTTPS 图片' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // F3：chatHistory 长度限制
+    const safeChatHistory = Array.isArray(chatHistory)
+      ? chatHistory.slice(-MAX_CHAT_HISTORY).map(msg => ({
+          role: msg.role,
+          content: msg.content.slice(0, MAX_CHAT_MESSAGE_LENGTH),
+        }))
+      : undefined;
 
     // 提取请求头
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
@@ -166,7 +219,7 @@ async function postHandler(request: NextRequest) {
 
             // 对话
             case 'chat':
-              generator = aiService.chat(question || '', content, chatHistory, config);
+              generator = aiService.chat(question || '', content, safeChatHistory, config);
               break;
 
             default:
@@ -215,11 +268,25 @@ async function postHandler(request: NextRequest) {
 
 // 语言检测接口
 async function getHandler(request: NextRequest) {
+  // F3：调用者鉴权
+  const userId = await getAuthenticatedUserId(request);
+  if (!userId) {
+    return NextResponse.json(
+      { error: '未授权，请提供有效的认证信息' },
+      { status: 401 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const text = searchParams.get('text');
 
   if (!text) {
     return NextResponse.json({ error: '请提供文本' }, { status: 400 });
+  }
+
+  // F3：文本长度限制
+  if (text.length > 1000) {
+    return NextResponse.json({ error: '文本过长' }, { status: 400 });
   }
 
   try {

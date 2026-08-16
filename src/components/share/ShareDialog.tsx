@@ -172,6 +172,11 @@ export function ShareDialog({
             创建分享链接，与他人共享你的文档
           </DialogDescription>
         </DialogHeader>
+
+        {/* S7：降级说明——分享记录存于创建者浏览器，跨设备访问不可用 */}
+        <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+          注意：当前分享功能仅限本机演示——分享记录保存在创建者浏览器中，其他设备打开分享链接将无法访问。跨设备分享需配置 Supabase 云端同步。
+        </div>
         
         <div className="space-y-6 py-4">
           {/* 分享链接 */}

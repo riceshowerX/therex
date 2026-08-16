@@ -174,7 +174,9 @@ export class CollaborationManager {
       this.eventSource.close();
     }
 
-    this.eventSource = new EventSource(`/api/collaboration/events?roomId=${roomId}`);
+    // S1：SSE 订阅必须携带房间访问令牌（events 路由强制校验，否则一律 401）
+    const tokenParam = this.roomToken ? `&token=${encodeURIComponent(this.roomToken)}` : '';
+    this.eventSource = new EventSource(`/api/collaboration/events?roomId=${encodeURIComponent(roomId)}${tokenParam}`);
 
     this.eventSource.onopen = () => {
       logger.info('SSE connected');

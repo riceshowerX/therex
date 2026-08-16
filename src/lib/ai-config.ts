@@ -328,12 +328,15 @@ export class AIConfigManager {
   }
 
   /**
-   * 异步保存配置（等待后端保存完成；失败时抛出/返回，供设置页判断）
+   * 异步保存配置（等待后端保存完成；失败时抛出，供设置页展示真实错误，M1）
    */
   async saveConfigAsync(config: Partial<AIConfig>): Promise<void> {
     this.saveConfig(config);
     if (config.apiKey !== undefined) {
-      await this.saveApiKeyToBackend(config.apiKey);
+      const ok = await this.saveApiKeyToBackend(config.apiKey);
+      if (!ok) {
+        throw new Error('保存 API Key 到后端失败，请检查后端认证或 Supabase 配置');
+      }
     }
   }
 
@@ -354,14 +357,26 @@ export class AIConfigManager {
    * 向后端发起请求所需的认证头。
    * - Supabase JWT 模式：由外部登录态注入 access token（此处未接入登录，后续接入时走 Authorization 头）
    * - 本机/内网共享密钥模式：发送专用请求头 x-ai-config-key，值来自 NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY
-   *   （与后端服务端 env AI_CONFIG_ADMIN_KEY 保持一致；注意该值会暴露给浏览器，仅限单用户/内网部署）
+   *   （与后端服务端 env AI_CONFIG_ADMIN_KEY 保持一致；注意该值会暴露给浏览器）
+   * M8：生产环境强制 Supabase JWT，共享密钥模式仅允许非 production 或显式开启。
    */
-  private authHeaders(): Record<string, string> {
+  getAuthHeaders(): Record<string, string> {
+    // NEXT_PUBLIC_ 变量与 NODE_ENV 在客户端构建时内联，可在浏览器中判断
+    if (process.env.NODE_ENV === 'production') {
+      return {}; // 生产环境不再发送共享密钥，等待 Supabase JWT 登录态
+    }
     const sharedKey = process.env.NEXT_PUBLIC_AI_CONFIG_ADMIN_KEY;
     if (sharedKey) {
       return { 'x-ai-config-key': sharedKey };
     }
     return {};
+  }
+
+  /**
+   * 向后端发起请求所需的认证头（旧名，供内部使用）。
+   */
+  private authHeaders(): Record<string, string> {
+    return this.getAuthHeaders();
   }
 
   /**
@@ -428,13 +443,13 @@ export class AIConfigManager {
     return null;
   }
 
-  // 通过后端 API 保存 API Key
-  private async saveApiKeyToBackend(apiKey: string): Promise<void> {
+  // 通过后端 API 保存 API Key（返回是否成功，M1）
+  private async saveApiKeyToBackend(apiKey: string): Promise<boolean> {
     try {
       const id = await this.ensureConfigSaved();
       if (!id) {
         logger.error('Failed to save API key to backend: no config id');
-        return;
+        return false;
       }
       const response = await fetch('/api/ai-config', {
         method: 'PATCH',
@@ -449,9 +464,12 @@ export class AIConfigManager {
       });
       if (!response.ok) {
         logger.error(`Failed to save API key to backend: ${response.status}`);
+        return false;
       }
+      return true;
     } catch (error) {
       logger.error('Failed to save API key to backend', error instanceof Error ? error : undefined);
+      return false;
     }
   }
 

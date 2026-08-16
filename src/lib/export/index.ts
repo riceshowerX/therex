@@ -4,6 +4,17 @@
  */
 
 import { toast } from 'sonner';
+import { marked } from 'marked';
+
+// HTML 转义（S6：禁止未渲染的 Markdown/HTML 原样进入导出文件）
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 // 导出格式类型
 export type ExportFormat = 
@@ -103,9 +114,9 @@ class MarkdownExporter {
 
 // HTML 导出器
 class HTMLExporter {
-  export(content: string, title: string, options: ExportOptions): ExportResult {
+  async export(content: string, title: string, options: ExportOptions): Promise<ExportResult> {
     try {
-      const html = this.convertToHTML(content, title, options);
+      const html = await this.convertToHTML(content, title, options);
       const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
 
       return {
@@ -121,53 +132,34 @@ class HTMLExporter {
     }
   }
 
-  convertToHTML(content: string, title: string, options: ExportOptions): string {
-    // 基础 Markdown 到 HTML 转换
-    let html = content;
+  /**
+   * S6：HTML 导出消毒。
+   * 1. 用 marked 将 Markdown 渲染为 HTML；
+   * 2. 用 DOMPurify 消毒，禁止 <script>/事件属性/危险 URL 透传；
+   * 3. DOMPurify 不可用时整段转义兜底（保证绝不原样透传原始 HTML）。
+   */
+  async convertToHTML(content: string, title: string, options: ExportOptions): Promise<string> {
+    // 基础 Markdown 到 HTML 转换（marked）
+    let html: string;
+    try {
+      html = marked.parse(content, { gfm: true, breaks: true }) as string;
+    } catch {
+      // 渲染失败则退化为纯文本（转义）
+      html = escapeHtml(content);
+    }
 
-    // 标题
-    html = html.replace(/^######\s+(.+)$/gm, '<h6>$1</h6>');
-    html = html.replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>');
-    html = html.replace(/^####\s+(.+)$/gm, '<h4>$1</h4>');
-    html = html.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
-    html = html.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
-    html = html.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
-
-    // 加粗和斜体
-    html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    html = html.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    html = html.replace(/_(.+?)_/g, '<em>$1</em>');
-
-    // 删除线
-    html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
-
-    // 代码块
-    html = html.replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre><code class="language-$1">$2</code></pre>');
-    html = html.replace(/`(.+?)`/g, '<code>$1</code>');
-
-    // 链接和图片
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />');
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-    // 列表
-    html = html.replace(/^\s*[-*+]\s+(.+)$/gm, '<li>$1</li>');
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    html = html.replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>');
-
-    // 引用
-    html = html.replace(/^>\s+(.+)$/gm, '<blockquote>$1</blockquote>');
-
-    // 水平线
-    html = html.replace(/^---$/gm, '<hr />');
-
-    // 段落
-    html = html.replace(/\n\n/g, '</p><p>');
-    html = `<p>${html}</p>`;
-    html = html.replace(/<p>\s*<(h[1-6]|ul|ol|pre|blockquote|hr)/g, '<$1');
-    html = html.replace(/<\/(h[1-6]|ul|ol|pre|blockquote)>\s*<\/p>/g, '</$1>');
+    // 消毒：剥离 <script>/onerror 等事件属性/危险 URL
+    try {
+      const { default: DOMPurify } = await import('dompurify');
+      html = DOMPurify.sanitize(html, {
+        ADD_ATTR: ['style', 'data-chart-config', 'data-heading'],
+        ALLOW_DATA_ATTR: true,
+        USE_PROFILES: { html: true },
+      });
+    } catch (error) {
+      console.error('DOMPurify 加载失败，HTML 导出退化为转义模式（安全兜底）:', error);
+      html = escapeHtml(html);
+    }
 
     // 生成完整的 HTML 文档
     const styles = options.includeStyles ? this.getStyles() : '';
@@ -179,7 +171,7 @@ class HTMLExporter {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   ${styles}
   ${options.customCss ? `<style>${options.customCss}</style>` : ''}
 </head>
@@ -271,7 +263,7 @@ class PDFExporter {
       }
 
       const htmlExporter = new HTMLExporter();
-      const html = htmlExporter.convertToHTML(content, title, {
+      const html = await htmlExporter.convertToHTML(content, title, {
         ...options,
         includeStyles: true,
       });
@@ -417,7 +409,7 @@ class DocumentExporter {
         result = this.markdownExporter.export(content, title, options);
         break;
       case 'html':
-        result = this.htmlExporter.export(content, title, options);
+        result = await this.htmlExporter.export(content, title, options);
         break;
       case 'pdf':
         result = await this.pdfExporter.export(content, title, options);
@@ -437,7 +429,7 @@ class DocumentExporter {
         break;
       case 'word':
         // Word 导出实际上是 HTML 格式
-        result = this.htmlExporter.export(content, title, options);
+        result = await this.htmlExporter.export(content, title, options);
         if (result.success && result.filename) {
           result.filename = `${title}.doc`;
         }

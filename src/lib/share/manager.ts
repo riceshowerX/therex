@@ -321,7 +321,11 @@ export class ShareManager {
   }
 
   private generateId(): string {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
+    // S7/M9：使用加密安全随机 UUID（crypto.randomUUID），替代可预测的 Math.random
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
   }
 }
 

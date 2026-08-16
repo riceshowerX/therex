@@ -4,6 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
+import { serverEnv } from '@/lib/env';
 
 // 请求大小限制
 export const MAX_REQUEST_SIZE = 1 * 1024 * 1024; // 1MB
@@ -299,4 +301,145 @@ export function sanitizeForLog(data: Record<string, unknown>): Record<string, un
   }
 
   return sanitized;
+}
+
+/**
+ * 统一鉴权：解析当前请求对应的用户身份（F1/F2/F3）。
+ *
+ * 策略（与 ai-config 原有实现对齐，收敛到共享工具）：
+ * 1. 若配置了 SUPABASE_SERVICE_ROLE_KEY：
+ *    - 校验 Authorization: Bearer <Supabase JWT>
+ *    - 通过 supabase.auth.getUser(token) 换取真实 user.id
+ *    - 无效/缺失 token 一律返回 null（调用方应返回 401）
+ * 2. 共享密钥模式（x-ai-config-key === 服务端 env AI_CONFIG_ADMIN_KEY）：
+ *    - 仅允许非 production 环境，或显式设置 ALLOW_SHARED_KEY_AUTH=true（M8）
+ *    - 密钥只存在于服务端 env；Authorization 头保留给未来 Supabase JWT 使用
+ * 3. 禁止把任意字符串直接当作身份；禁止 default_user 兜底。
+ */
+export async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  // 方案 1：Supabase JWT 校验（Authorization 头）
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      const adminClient = getSupabaseAdminClient();
+      if (adminClient) {
+        const { data, error } = await adminClient.auth.getUser(token);
+        if (error || !data.user) return null;
+        return data.user.id;
+      }
+    }
+  }
+
+  // 方案 2：共享密钥模式（专用请求头 x-ai-config-key，密钥仅存在于服务端 env）
+  // M8：生产环境强制 Supabase JWT，共享密钥模式仅允许非 production 或显式开启。
+  const sharedKeyAllowed =
+    process.env.NODE_ENV !== 'production' || process.env.ALLOW_SHARED_KEY_AUTH === 'true';
+  if (sharedKeyAllowed) {
+    const adminKey = serverEnv.AI_CONFIG_ADMIN_KEY;
+    if (adminKey) {
+      const keyHeader = request.headers.get('x-ai-config-key');
+      return keyHeader === adminKey ? 'local-admin' : null;
+    }
+  }
+
+  // 未配置任何鉴权机制
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+  console.warn('[api-utils] 未配置 SUPABASE_SERVICE_ROLE_KEY 或 AI_CONFIG_ADMIN_KEY，开发环境临时放行');
+  return 'dev-user';
+}
+
+/**
+ * 判断 IP 是否属于私网/保留地址（F3 imageUrl SSRF 防护）。
+ * 覆盖 IPv4 私网段、IPv6 回环/未指定/链路本地/ULA/站点本地、IPv4-mapped IPv6 等。
+ * 兼容带方括号的 IPv6 字面量（如 '[::1]'，来自 URL.hostname 的返回形式）。
+ */
+export function isPrivateIp(ip: string): boolean {
+  const normalized = ip
+    .toLowerCase()
+    .replace(/^\[/, '')
+    .replace(/\]$/, '');
+  if (
+    normalized === '::1' ||
+    normalized === '::' ||
+    normalized === '127.0.0.1' ||
+    normalized === '0.0.0.0' ||
+    normalized === 'localhost'
+  ) {
+    return true;
+  }
+  if (normalized.startsWith('fc') || normalized.startsWith('fd')) {
+    // IPv6 ULA（fc00::/7）
+    return true;
+  }
+  if (/^fe[89ab]/.test(normalized)) {
+    // IPv6 链路本地（fe80::/10）
+    return true;
+  }
+  if (/^fe[cdef]/.test(normalized)) {
+    // IPv6 站点本地（fec0::/10，已废弃）
+    return true;
+  }
+  // IPv4-mapped IPv6（::ffff:a.b.c.d 或 ::ffff:xxxx:xxxx，如 ::ffff:7f00:1 = 127.0.0.1）
+  const v4Mapped = normalized.match(/^::ffff:(.+)$/);
+  if (v4Mapped) {
+    let v4 = v4Mapped[1];
+    if (!v4.includes('.')) {
+      // 十六进制形式：每组补零到 4 位后取最后 32 位转点分十进制（7f00:1 → 7f000001 → 127.0.0.1）
+      const hex = v4
+        .split(':')
+        .map(g => g.padStart(4, '0'))
+        .join('')
+        .slice(-8);
+      const nums: number[] = [];
+      for (let i = 0; i < 8; i += 2) {
+        nums.push(parseInt(hex.slice(i, i + 2), 16));
+      }
+      v4 = nums.join('.');
+    }
+    return isPrivateIp(v4);
+  }
+  if (normalized.includes(':')) {
+    // 其他 IPv6 地址（无法简单判定为公网时保守拒绝内网段）
+    return false;
+  }
+  const parts = normalized.split('.');
+  if (parts.length !== 4) return true;
+  const nums = parts.map(Number);
+  if (nums.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const [a, b] = nums;
+  if (a === 10) return true;                 // 10.0.0.0/8
+  if (a === 127) return true;                // 127.0.0.0/8
+  if (a === 169 && b === 254) return true;   // 169.254.0.0/16（云元数据）
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 168) return true;   // 192.168.0.0/16
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 基准测试
+  return false;
+}
+
+/**
+ * 校验外部图片/资源 URL 是否安全（F3）。
+ * 仅允许 https；拒绝 localhost/内网/保留地址主机名与形如 127.0.0.1 的字面量。
+ */
+export function isSafeExternalUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    if (url.protocol !== 'https:') return false;
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname.endsWith('.local') || hostname.endsWith('.internal')) {
+      return false;
+    }
+    // 剥离 IPv6 字面量方括号（URL.hostname 对 https://[::1]/ 返回 '[::1]'，否则私网判定失效）
+    const bareHost = hostname.replace(/^\[|\]$/g, '');
+    // 字面量 IP 直接做私网判定（防止 127.0.0.1、[::1]、[fe80::1] 等绕过）
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(bareHost) || bareHost.includes(':')) {
+      return !isPrivateIp(bareHost);
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

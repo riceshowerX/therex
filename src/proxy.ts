@@ -13,11 +13,6 @@ const getSecurityHeaders = (isDev: boolean) => [
     key: 'X-Content-Type-Options',
     value: 'nosniff',
   },
-  // XSS 保护
-  {
-    key: 'X-XSS-Protection',
-    value: '1; mode=block',
-  },
   // 引用策略
   {
     key: 'Referrer-Policy',

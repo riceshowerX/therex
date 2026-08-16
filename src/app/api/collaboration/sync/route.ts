@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { updateDocument, getRoom, verifyRoomToken, isContentWithinLimit } from '@/lib/collaboration/server';
+import { updateDocument, verifyRoomToken, isContentWithinLimit } from '@/lib/collaboration/server';
 import { withApiHandler, rateLimiterHigh } from '@/lib/api-utils';
 
 async function postHandler(request: NextRequest) {
@@ -35,7 +35,6 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    const currentRoom = getRoom(roomId);
     const result = updateDocument(
       roomId,
       userId,
@@ -56,7 +55,8 @@ async function postHandler(request: NextRequest) {
       version: result.version,
       // last-write-wins 保留，但向客户端报告冲突（P1-3）
       conflict: result.conflict === true,
-      serverVersion: currentRoom?.documentVersion ?? result.version,
+      // M5：serverVersion 使用 updateDocument 返回值（更新后的版本），不再使用更新前读取的旧值
+      serverVersion: result.version ?? 0,
     });
   } catch (error) {
     console.error('Sync document error:', error);

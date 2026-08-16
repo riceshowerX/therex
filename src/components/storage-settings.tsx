@@ -6,7 +6,7 @@
  * 允许用户选择和配置存储后端
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,18 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   Database,
   HardDrive,
@@ -99,16 +88,11 @@ const STORAGE_PROVIDERS: Record<StorageProvider, {
 export function StorageSettings() {
   const [currentProvider, setCurrentProvider] = useState<StorageProvider>('local');
   const [isTesting, setIsTesting] = useState(false);
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [showMigrateDialog, setShowMigrateDialog] = useState(false);
-  const [pendingConfig, setPendingConfig] = useState<StorageConfig | null>(null);
-  const [migrationProgress, setMigrationProgress] = useState(0);
 
-  // 配置表单状态
+  // 配置表单状态（S8：不再收集 serviceRoleKey 等敏感信息，服务端密钥只存在于服务端 env）
   const [supabaseConfig, setSupabaseConfig] = useState({
     url: '',
     anonKey: '',
-    serviceRoleKey: '',
   });
 
   const [indexedDBConfig, setIndexedDBConfig] = useState({
@@ -186,7 +170,6 @@ export function StorageSettings() {
           provider: 'supabase',
           url: supabaseConfig.url,
           anonKey: supabaseConfig.anonKey,
-          serviceRoleKey: supabaseConfig.serviceRoleKey,
         } as SupabaseStorageConfig;
       
       default:
@@ -194,7 +177,7 @@ export function StorageSettings() {
     }
   };
 
-  // 保存配置并迁移数据
+  // 保存配置（S8：非 local 后端未接入真实迁移能力，明确拒绝而非"假迁移"）
   const handleSave = async () => {
     const config = buildConfig();
     if (!config) {
@@ -202,58 +185,17 @@ export function StorageSettings() {
       return;
     }
 
-    setPendingConfig(config);
-    setShowMigrateDialog(true);
-  };
+    if (config.provider !== 'local') {
+      toast.error('该存储后端尚未接入真实迁移能力，暂不支持切换（当前仅支持 localStorage）');
+      return;
+    }
 
-  // 执行迁移
-  const handleMigrate = async () => {
-    if (!pendingConfig) return;
-
-    setIsMigrating(true);
-    setMigrationProgress(0);
-
-    // 使用 ref 跟踪定时器，确保在任何情况下都能清理
-    const progressIntervalId = { current: null as ReturnType<typeof setInterval> | null };
-
+    const manager = getStorageManager();
     try {
-      const manager = getStorageManager();
-      
-      // 模拟进度
-      progressIntervalId.current = setInterval(() => {
-        setMigrationProgress(prev => Math.min(prev + 10, 90));
-      }, 200);
-
-      const result = await manager.migrateTo(pendingConfig.provider, pendingConfig);
-      
-      // 清理定时器
-      if (progressIntervalId.current) {
-        clearInterval(progressIntervalId.current);
-        progressIntervalId.current = null;
-      }
-      setMigrationProgress(100);
-
-      if (result.failed === 0) {
-        toast.success(`存储已切换，成功迁移 ${result.success} 条数据`);
-      } else {
-        toast.warning(`迁移完成：${result.success} 成功，${result.failed} 失败`);
-      }
-
-      setShowMigrateDialog(false);
+      await manager.migrateTo('local', config);
+      toast.success('存储配置已保存');
     } catch (error) {
-      // 确保清理定时器
-      if (progressIntervalId.current) {
-        clearInterval(progressIntervalId.current);
-        progressIntervalId.current = null;
-      }
-      toast.error('迁移失败，请重试');
-    } finally {
-      // 双重保险，确保定时器被清理
-      if (progressIntervalId.current) {
-        clearInterval(progressIntervalId.current);
-      }
-      setIsMigrating(false);
-      setMigrationProgress(0);
+      toast.error(error instanceof Error ? error.message : '保存配置失败');
     }
   };
 
@@ -317,18 +259,9 @@ export function StorageSettings() {
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="serviceRoleKey">Service Role Key (可选)</Label>
-              <Input
-                id="serviceRoleKey"
-                type="password"
-                value={supabaseConfig.serviceRoleKey}
-                onChange={(e) => setSupabaseConfig({ ...supabaseConfig, serviceRoleKey: e.target.value })}
-                placeholder="用于服务端操作，可选"
-              />
-            </div>
             <p className="text-xs text-muted-foreground">
-              在 Supabase 控制台的 Settings → API 中获取这些信息
+              在 Supabase 控制台的 Settings → API 中获取 URL 与 Anon Key。
+              注意：当前版本云存储适配器尚未接入真实迁移能力，切换后端暂不可用。
             </p>
           </div>
         );
@@ -465,34 +398,6 @@ export function StorageSettings() {
           </div>
         </CardContent>
       </Card>
-
-      {/* 迁移确认对话框 */}
-      <AlertDialog open={showMigrateDialog} onOpenChange={setShowMigrateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认切换存储</AlertDialogTitle>
-            <AlertDialogDescription>
-              切换存储后端会将所有数据迁移到新的存储位置。请确保数据已备份。
-              <br /><br />
-              当前的数据将被复制到新存储，原数据不会被删除。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {isMigrating && (
-            <div className="py-4">
-              <Progress value={migrationProgress} className="h-2" />
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                正在迁移数据... {migrationProgress}%
-              </p>
-            </div>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMigrating}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleMigrate} disabled={isMigrating}>
-              {isMigrating ? '迁移中...' : '确认迁移'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

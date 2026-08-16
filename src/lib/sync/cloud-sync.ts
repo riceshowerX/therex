@@ -6,6 +6,7 @@
 'use client';
 
 import { createLogger } from '@/lib/logger';
+import { aiConfigManager } from '@/lib/ai-config';
 
 const logger = createLogger('cloud-sync');
 
@@ -194,6 +195,8 @@ export class CloudSyncManager {
           record.lastSyncedAt = Date.now();
           record.localChanges = false;
           this.syncQueue.delete(documentId);
+          // M6：同步成功后清理 offline-sync 记录，防止队列无限膨胀
+          this.clearOfflineRecord(documentId);
         }
       } catch (error) {
         logger.error(`Failed to sync document ${documentId}`, error instanceof Error ? error : undefined);
@@ -212,10 +215,10 @@ export class CloudSyncManager {
     remoteRecord?: SyncRecord;
   }> {
     try {
-      // 尝试调用后端同步 API
+      // 尝试调用后端同步 API（F1：携带鉴权头）
       const response = await fetch('/api/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
         body: JSON.stringify({
           documentId: record.documentId,
           content: record.content,
@@ -388,6 +391,16 @@ export class CloudSyncManager {
       localStorage.setItem(key, JSON.stringify(record));
     } catch (error) {
       logger.error('Failed to save offline data', error instanceof Error ? error : undefined);
+    }
+  }
+
+  // M6：同步成功后清理对应 offline-sync 记录
+  private clearOfflineRecord(documentId: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(`offline-sync:${documentId}`);
+    } catch (error) {
+      logger.error('Failed to clear offline record', error instanceof Error ? error : undefined);
     }
   }
 

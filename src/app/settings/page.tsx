@@ -130,7 +130,7 @@ export default function SettingsPage() {
 
       const response = await fetch('/api/ai-assist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...aiConfigManager.getAuthHeaders() },
         body: JSON.stringify({ action: 'test', configId }),
       });
 
@@ -418,7 +418,7 @@ export default function SettingsPage() {
                       setConfig({ ...config, temperature: value[0] })
                     }
                     min={0}
-                    max={2}
+                    max={1}
                     step={0.1}
                   />
                   <p className="text-xs text-muted-foreground">

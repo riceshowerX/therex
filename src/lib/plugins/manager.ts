@@ -566,8 +566,9 @@ export class PluginManager {
     if (this.config.onPermissionRequest) {
       return this.config.onPermissionRequest(pluginId, pluginName, permissions);
     }
-    // 默认授权
-    return true;
+    // M4：无回调时默认拒绝，避免任何插件静默获得 storage/network/clipboard 等权限
+    logger.warn(`Permission request denied: plugin ${pluginId} requested ${permissions.join(', ')} but no onPermissionRequest handler configured`);
+    return false;
   }
 
   private loadDefaultSettings(manifest: PluginManifest): Record<string, unknown> {

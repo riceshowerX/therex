@@ -35,17 +35,22 @@ describe.skipIf(!serverAvailable)('API 接口测试', () => {
   let testUserId: string | null = null;
 
   describe('AI 配置 API', () => {
-    it('GET /api/ai-config - 应返回 AI 配置数据', async () => {
+    it('GET /api/ai-config - 应返回 AI 配置数据或明确的未配置状态', async () => {
       const response = await fetch(`${BASE_URL}/api/ai-config`);
-      expect(response.status).toBe(200);
+      // M12：Supabase 未配置时返回 503 { error: 'not configured' }；已配置时返回 200 { data: [...] }
+      expect([200, 401, 503]).toContain(response.status);
       const data = await response.json();
-      // API 返回 { data: [], message: '...' } 或 { data: configs }
-      expect(data).toHaveProperty('data');
+      if (response.status === 200) {
+        // API 返回 { data: configs }
+        expect(data).toHaveProperty('data');
+      } else {
+        expect(data).toHaveProperty('error');
+      }
     });
   });
 
   describe('AI 助手 API', () => {
-    it('POST /api/ai-assist - 无配置时应返回错误或失败', async () => {
+    it('POST /api/ai-assist - 无配置/未授权时应返回错误或失败', async () => {
       const response = await fetch(`${BASE_URL}/api/ai-assist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,9 +60,8 @@ describe.skipIf(!serverAvailable)('API 接口测试', () => {
           cursorPosition: 0,
         }),
       });
-      // 无有效配置时，应返回 503 (服务不可用) 或 500 (服务器错误)
-      // 200 不应出现，因为此时无有效的 AI 后端可用
-      expect([400, 500, 503]).toContain(response.status);
+      // F2：未授权返回 401；无有效配置时返回 400/500/503；200 不应出现
+      expect([400, 401, 500, 503]).toContain(response.status);
     });
 
     it('POST /api/ai-assist - 缺少参数时应返回 400', async () => {
@@ -208,6 +212,8 @@ describe.skipIf(!serverAvailable)('API 接口测试', () => {
       const createData = await createResponse.json();
       const roomId = createData.room.id;
       const userId = createData.room.collaborators[0].id;
+      // P1-3/S1：同步接口要求携带房间访问令牌（创建接口返回 roomToken）
+      const roomToken = createData.roomToken;
 
       const response = await fetch(`${BASE_URL}/api/collaboration/sync`, {
         method: 'POST',
@@ -216,6 +222,7 @@ describe.skipIf(!serverAvailable)('API 接口测试', () => {
           roomId: roomId,
           userId: userId,
           content: '# 更新后的内容',
+          roomToken: roomToken,
         }),
       });
       

@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { renderCompleteMarkdown, initMermaid, initECharts, cleanupECharts } from '@/lib/markdown-renderer';
+import { renderCompleteMarkdown, initMermaid, initECharts, cleanupECharts, ensureClientLibsLoaded } from '@/lib/markdown-renderer';
 
 interface MarkdownPreviewProps {
   markdown: string;
@@ -21,12 +21,30 @@ let globalEChartsInitialized = false;
 export function MarkdownPreview({ markdown, className = '' }: MarkdownPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
+  // M10：katex/hljs 动态加载完成后驱动重渲染，修复首屏公式/高亮缺失
+  const [libsReady, setLibsReady] = useState(false);
 
-  // 使用 useMemo 缓存处理后的 HTML
+  // M10：等待 katex/hljs 加载完成
+  useEffect(() => {
+    let cancelled = false;
+    ensureClientLibsLoaded()
+      .then(() => {
+        if (!cancelled) setLibsReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLibsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 使用 useMemo 缓存处理后的 HTML（libsReady 变化后重新计算）
   const htmlContent = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return renderCompleteMarkdown(markdown);
-  }, [markdown]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markdown, libsReady]);
 
   // 渲染 Markdown 和图表
   useEffect(() => {

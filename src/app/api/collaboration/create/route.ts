@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRoom, exportRoom, getUserToken } from '@/lib/collaboration/server';
-import { withApiHandler, rateLimiterHigh } from '@/lib/api-utils';
+import { withApiHandler, rateLimiterHigh, getClientIdentifier } from '@/lib/api-utils';
 
 async function postHandler(request: NextRequest) {
   try {
@@ -27,11 +27,15 @@ async function postHandler(request: NextRequest) {
       );
     }
 
+    // M7：创建房间限流键改用服务端身份（真实 IP），不再信任客户端自报 userName
+    const clientIp = getClientIdentifier(request);
+
     const result = createRoom(
       documentId,
       documentTitle || '未命名文档',
       documentContent || '',
-      userName
+      userName,
+      clientIp
     );
 
     // createRoom 可能返回错误对象

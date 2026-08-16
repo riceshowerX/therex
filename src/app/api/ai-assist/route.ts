@@ -3,18 +3,25 @@
  *
  * 支持从数据库读取 AI 配置，并在服务端代理请求，避免暴露 API Key
  * - 所有 AI 请求必须通过 configId 从数据库获取配置，不接受前端传入 apiKey
+ * - F2：必须通过 getAuthenticatedUserId 鉴权；configId 按 user_id 校验归属，
+ *   杜绝拿他人 configId 盗用其 API Key
  * - URL 白名单校验防止 SSRF 攻击
+ * - S4：按 provider 分发请求适配器（claude/gemini 走各自协议；文心等暂不支持时明确报错）
  * - SSE 流式解析增加缓冲区处理，防止跨 chunk 数据丢失
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdminClient } from '@/storage/database/supabase-client';
 import { defaultSystemPrompts } from '@/lib/ai-config';
-import { withApiHandler } from '@/lib/api-utils';
+import { withApiHandler, getAuthenticatedUserId } from '@/lib/api-utils';
 import { lookup } from 'dns/promises';
 
 // 请求大小限制（1MB）
 const MAX_REQUEST_SIZE = 1 * 1024 * 1024;
+
+// 聊天历史限制：最多保留最近 20 轮，单条消息 4000 字符
+const MAX_CHAT_HISTORY = 20;
+const MAX_CHAT_MESSAGE_LENGTH = 4000;
 
 // 允许的 API 端点域名白名单
 const ALLOWED_API_DOMAINS = [
@@ -137,6 +144,15 @@ interface AIRequestBody {
 
 async function postHandler(request: NextRequest) {
   try {
+    // F2：调用者鉴权
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '未授权，请提供有效的认证信息' },
+        { status: 401 }
+      );
+    }
+
     // 验证请求大小
     const contentLength = parseInt(request.headers.get('content-length') || '0');
     if (contentLength > MAX_REQUEST_SIZE) {
@@ -159,7 +175,7 @@ async function postHandler(request: NextRequest) {
 
     // 测试连接（需要 configId 从数据库读取配置）
     if (action === 'test') {
-      return handleTestConnection(configId);
+      return handleTestConnection(configId, userId);
     }
 
     if (!content && !selection && action !== 'chat') {
@@ -177,6 +193,14 @@ async function postHandler(request: NextRequest) {
       );
     }
 
+    // 限制 chatHistory 长度，防止滥用（F2/F3）
+    const safeChatHistory = Array.isArray(chatHistory)
+      ? chatHistory.slice(-MAX_CHAT_HISTORY).map(msg => ({
+          role: msg.role,
+          content: msg.content.slice(0, MAX_CHAT_MESSAGE_LENGTH),
+        }))
+      : undefined;
+
     // 必须使用数据库中的配置（不再接受前端传入 apiKey）
     if (!configId) {
       return NextResponse.json(
@@ -185,7 +209,7 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    const dbConfig = await getAIConfigFromDB(configId);
+    const dbConfig = await getAIConfigFromDB(configId, userId);
     if (!dbConfig) {
       return NextResponse.json(
         { error: 'AI 配置不存在或已失效，请重新配置' },
@@ -193,10 +217,10 @@ async function postHandler(request: NextRequest) {
       );
     }
 
-    return handleCustomAIRequest(action, content, selection, dbConfig, chatHistory, userMessage);
+    return handleCustomAIRequest(action, content, selection, dbConfig, safeChatHistory, userMessage);
   } catch (error) {
     console.error('AI API error:', error);
-    
+
     // 处理 JSON 解析错误
     if (error instanceof SyntaxError) {
       return NextResponse.json(
@@ -214,19 +238,21 @@ async function postHandler(request: NextRequest) {
 
 /**
  * 从数据库获取 AI 配置（snake_case 列名）
+ * F2：必须按 user_id 过滤，校验 configId 归属
  */
-async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | null> {
+async function getAIConfigFromDB(configId: string, userId: string): Promise<AIRequestConfig | null> {
   try {
     const client = getSupabaseAdminClient();
     if (!client) {
       console.warn('Supabase 未配置，无法从数据库获取 AI 配置');
       return null;
     }
-    
+
     const { data: config, error } = await client
       .from('ai_configurations')
       .select('provider, api_key, api_endpoint, model')
       .eq('id', configId)
+      .eq('user_id', userId)
       .single();
 
     if (error || !config) {
@@ -247,15 +273,15 @@ async function getAIConfigFromDB(configId: string): Promise<AIRequestConfig | nu
 }
 
 // 处理测试连接
-async function handleTestConnection(configId?: string) {
-  if (!configId) {
+async function handleTestConnection(configId?: string, userId?: string) {
+  if (!configId || !userId) {
     return NextResponse.json(
       { error: '请先保存 AI 配置后再测试连接' },
       { status: 400 }
     );
   }
 
-  const config = await getAIConfigFromDB(configId);
+  const config = await getAIConfigFromDB(configId, userId);
   if (!config) {
     return NextResponse.json(
       { error: 'AI 配置不存在' },
@@ -271,17 +297,17 @@ async function handleTestConnection(configId?: string) {
   }
 
   try {
-    const response = await fetch(`${config.apiEndpoint}/chat/completions`, {
+    const req = buildProviderRequest(config.provider, config, [
+      { role: 'user', content: 'Hi' },
+    ]);
+    if ('error' in req) {
+      return NextResponse.json({ error: req.error }, { status: 400 });
+    }
+
+    const response = await fetch(req.url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 5,
-      }),
+      headers: req.headers,
+      body: JSON.stringify(req.body),
     });
 
     if (response.ok) {
@@ -298,6 +324,120 @@ async function handleTestConnection(configId?: string) {
       { error: '连接失败，请检查网络或端点地址' },
       { status: 400 }
     );
+  }
+}
+
+/**
+ * S4：按 provider 构建上游请求。
+ * 不再"一律 OpenAI 格式"：Claude 走 /v1/messages + x-api-key + anthropic-version；
+ * Gemini 走 streamGenerateContent + x-goog-api-key；文心等暂不支持时返回明确错误。
+ */
+function buildProviderRequest(
+  provider: string,
+  config: AIRequestConfig,
+  messages: Array<{ role: string; content: string }>
+): { url: string; headers: Record<string, string>; body: unknown } | { error: string } {
+  const baseUrl = config.apiEndpoint.replace(/\/+$/, '');
+
+  if (provider === 'claude') {
+    const system = messages.find(m => m.role === 'system')?.content;
+    const rest = messages.filter(m => m.role !== 'system');
+    return {
+      url: `${baseUrl}/messages`,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: {
+        model: config.model,
+        max_tokens: 2048,
+        system,
+        messages: rest,
+        stream: true,
+      },
+    };
+  }
+
+  if (provider === 'gemini') {
+    const system = messages.find(m => m.role === 'system')?.content;
+    const rest = messages.filter(m => m.role !== 'system');
+    const contents = rest.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+    const body: Record<string, unknown> = { contents };
+    if (system) {
+      body.systemInstruction = { parts: [{ text: system }] };
+    }
+    return {
+      url: `${baseUrl}/models/${encodeURIComponent(config.model)}:streamGenerateContent?alt=sse`,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': config.apiKey,
+      },
+      body,
+    };
+  }
+
+  if (provider === 'wenxin') {
+    return {
+      error: '文心一言 (百度) 提供商暂不支持流式代理，请选择 OpenAI 兼容提供商（豆包/DeepSeek/OpenAI/Kimi/通义千问等）',
+    };
+  }
+
+  // OpenAI 兼容格式
+  return {
+    url: `${baseUrl}/chat/completions`,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiKey}`,
+    },
+    body: {
+      model: config.model,
+      messages,
+      temperature: 0.7,
+      max_tokens: 2048,
+      stream: true,
+    },
+  };
+}
+
+/**
+ * 解析单个 SSE data 负载，按 provider 提取文本增量。
+ */
+function parseProviderData(provider: string, data: string): { text?: string; done?: boolean } {
+  if (data === '[DONE]') return { done: true };
+  try {
+    const obj = JSON.parse(data);
+    if (provider === 'claude') {
+      if (obj.type === 'content_block_delta' && obj.delta?.text) {
+        return { text: obj.delta.text as string };
+      }
+      if (obj.type === 'message_stop') {
+        return { done: true };
+      }
+      return {};
+    }
+    if (provider === 'gemini') {
+      const parts = obj.candidates?.[0]?.content?.parts;
+      if (Array.isArray(parts)) {
+        const text = parts.map((p: { text?: string }) => p.text || '').join('');
+        if (text) return { text };
+      }
+      return {};
+    }
+    // OpenAI 兼容
+    const delta = obj.choices?.[0]?.delta?.content;
+    if (typeof delta === 'string' && delta) {
+      return { text: delta };
+    }
+    if (obj.choices?.[0]?.finish_reason) {
+      return { done: true };
+    }
+    return {};
+  } catch {
+    return {};
   }
 }
 
@@ -334,7 +474,12 @@ async function handleCustomAIRequest(
     { role: 'user' as const, content: userPrompt },
   ];
 
-  // 使用 OpenAI 兼容 API
+  // S4：按 provider 构建请求；不支持时直接返回明确错误（而非必然失败的 OpenAI 格式）
+  const req = buildProviderRequest(config.provider, config, messages);
+  if ('error' in req) {
+    return NextResponse.json({ error: req.error }, { status: 400 });
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -344,19 +489,10 @@ async function handleCustomAIRequest(
       const onAbort = () => abortController.abort();
       streamSignal.addEventListener('abort', onAbort, { once: true });
       try {
-        const response = await fetch(`${config.apiEndpoint}/chat/completions`, {
+        const response = await fetch(req.url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: config.model,
-            messages,
-            temperature: 0.7,
-            max_tokens: 2048,
-            stream: true,
-          }),
+          headers: req.headers,
+          body: JSON.stringify(req.body),
           signal: abortController.signal,
         });
 
@@ -390,21 +526,15 @@ async function handleCustomAIRequest(
               const trimmed = line.trim();
               if (trimmed.startsWith('data: ')) {
                 const data = trimmed.slice(6);
-                if (data === '[DONE]') {
+                const parsed = parseProviderData(config.provider, data);
+                if (parsed.done) {
                   controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                   continue;
                 }
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const delta = parsed.choices?.[0]?.delta?.content;
-                  if (delta) {
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ content: delta })}\n\n`)
-                    );
-                  }
-                } catch {
-                  // 忽略解析错误
+                if (parsed.text) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ content: parsed.text })}\n\n`)
+                  );
                 }
               }
             }
@@ -415,20 +545,13 @@ async function handleCustomAIRequest(
             const trimmed = buffer.trim();
             if (trimmed.startsWith('data: ')) {
               const data = trimmed.slice(6);
-              if (data === '[DONE]') {
+              const parsed = parseProviderData(config.provider, data);
+              if (parsed.done) {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              } else {
-                try {
-                  const parsed = JSON.parse(data);
-                  const delta = parsed.choices?.[0]?.delta?.content;
-                  if (delta) {
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ content: delta })}\n\n`)
-                    );
-                  }
-                } catch {
-                  // 忽略
-                }
+              } else if (parsed.text) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ content: parsed.text })}\n\n`)
+                );
               }
             }
           }
