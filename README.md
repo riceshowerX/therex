@@ -6,8 +6,6 @@
 
 **现代化的 AI 驱动 Markdown 编辑器**
 
-灵感来自明日方舟的特蕾西娅（Theresa），象征优雅与力量 —— 让写作更专注、更智能。
-
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
